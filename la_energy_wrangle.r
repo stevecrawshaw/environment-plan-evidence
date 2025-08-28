@@ -1,7 +1,13 @@
+# ingest the energy consumprion data for local authorities
+# minimally clean and stack the data by year for all LAs and output as parquet
+#  for onward analysis
+
 pacman::p_load(tidyverse, janitor, readxl, glue, fs, duckdb, arrow)
 path <- "data/Subnational_total_final_energy_consumption_2005_2023.xlsx"
 skip_rows <- 5
 cells <- "A6:AJ391"
+
+
 # get the sheets
 data_sheets <- excel_sheets(
   path = path

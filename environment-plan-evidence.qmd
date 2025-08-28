@@ -1,0 +1,190 @@
+---
+title: "Evidence base for 2025 Environment Plan"
+date: r`"(Sys.Date())"`
+author:
+  - name: Steve Crawshaw
+    email: steve.crawshaw@westofengland-ca.gov.uk
+    affiliation: 
+      - name: West of England Combined Authority
+      - city: Bristol
+abstract: | 
+  Data and analysis to support the 2025 Environment Plan.
+keywords:
+  - Carbon Reduction
+  - Energy Efficiency
+  - Regional Emissions
+license: "CC BY"
+copyright: 
+  holder: Steve Crawshaw
+  year: 2025
+  statement: "This work is licensed under a Creative Commons Attribution 4.0 International License."
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-summary: "Show/Hide Code"
+    fig-width: 8
+    fig-height: 5
+    fig-align: center
+    df-print: paged
+---
+
+```{r libraries}
+#| echo: FALSE
+pacman::p_load(tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras)
+```
+```{r global-variables}
+#| echo: FALSE
+# get named vector of colours from WECA brand guidelines
+weca_core_colours <- jsonlite::read_json(
+  "https://raw.githubusercontent.com/westofengland-ca/weca_templates/refs/heads/main/General_branding/brand_guidelines.json"
+) |>
+  pluck(3, "colors", "primary_colors") |>
+  map("hex") |>
+  unlist()
+```
+
+
+## Introduction
+This document brings together data and analysis to support the West of England Combined Authority's 2025 Environment Plan. It includes information on regional emissions, energy efficiency, and carbon reduction initiatives.
+
+## Data Sources
+The primary data sources used in this analysis include: <br>
+    - [Sub - national total final energy consumption (DESNZ)](https://www.gov.uk/government/statistics/total-final-energy-consumption-at-regional-and-local-authority-level-2005-to-2023) <br>
+    - [UK local authority and regional carbon dioxide emissions national statistics (DESNZ)](https://www.gov.uk/government/statistics/uk-local-authority-and-regional-greenhouse-gas-emissions-statistics-2005-to-2023)
+
+
+```{r data-import}
+energy_data_all_la_tbl <- read_parquet("data/clean_energy_la_long_tbl.parquet")
+# motherduck extension not available in windows!
+con <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
+con |> dbExecute("INSTALL spatial;")
+con |> dbExecute("LOAD spatial;")
+ca_la_tbl <- dbGetQuery(con, "FROM ca_la_tbl") |> collect()
+ghg_emissions_tbl <- dbGetQuery(con, "FROM ghg_emissions_tbl") |> collect()
+emissions_tbl <- dbGetQuery(con, "FROM emissions_tbl") |> collect()
+epc_domestic_tbl <- dbGetQuery(con, "FROM epc_domestic_vw") |> collect()
+epc_non_domestic_tbl <- dbGetQuery(con, "FROM epc_non_domestic_vw") |> collect()
+weca_ns_la_names <- ca_la_tbl |> filter(cauthnm == "West of England") |> pull(ladnm)
+weca_ns_la_codes <- ca_la_tbl |> filter(cauthnm == "West of England") |> pull(ladcd)
+```
+
+```{r variables-from-data}
+#| echo: FALSE
+max_year <- max(energy_data_all_la_tbl$year)
+```
+
+```{r energy-by-end-user}
+energy_data_weca_max_year_all_fuels_tbl <- energy_data_all_la_tbl |> 
+  filter(ladcd %in% weca_ns_la_codes,
+  fuel == "All fuels",
+  year == max_year,
+  sector != "Total"
+  ) |>
+group_by(sector) |>
+summarise(energy_GTOe = sum(value, na.rm = TRUE)) |>
+mutate(pct_sector = (energy_GTOe / sum(energy_GTOe))) |>
+  glimpse()
+```
+
+```{r gt-table-energy-by-end-user}
+
+# fontAwesome icons for gt table
+fa_tbl <- c(
+  "Domestic" = "house",
+  "Industrial commercial and other" = "industry",
+  "Transport" = "car-side"
+) |>
+  enframe(name = "sector", value = "fa_icon") |>
+  glimpse()
+
+gt_source_tbl <- energy_data_weca_max_year_all_fuels_tbl |>
+  inner_join(fa_tbl, by = join_by("sector" == "sector")) |>
+  arrange(desc(pct_sector)) %>%
+  glimpse()
+
+sector_gt <- gt_source_tbl |>
+  select(fa_icon, sector, pct_sector) %>%
+  gt() |>
+  fmt_icon(
+    fa_icon
+  ) %>%
+  gt_plt_bar(
+    pct_sector,
+    scale_type = "percent",
+    color = weca_core_colours[1],
+    width = 70
+  ) |> 
+  cols_label(
+    fa_icon = "",
+    sector = "Sector",
+    pct_sector = glue("Contribution {max_year}")
+  ) %>%
+  cols_move_to_end(pct_sector)
+
+sector_gt
+
+```
+
+
+```{r energy-by-fuel}
+
+not_other <- c("Electricity",
+            "Gas",
+            "Petroleum")
+
+energy_data_weca_max_year_all_sectors_tbl <- energy_data_all_la_tbl |> 
+  filter(ladcd %in% weca_ns_la_codes,
+  sector == "Total",
+  year == max_year,
+  fuel != "All fuels"
+  ) |> 
+  select(fuel, value) |>
+  mutate(fuel_type = if_else(fuel %in% not_other, fuel, "Other")) |>
+  group_by(fuel_type) |>
+  summarise(energy_GTOe = sum(value, na.rm = TRUE)) |>
+  mutate(pct_fuel = (energy_GTOe / sum(energy_GTOe))) |>
+  glimpse()
+```
+
+
+```{r gt-table-energy-by-fuel}
+fa_fuel_tbl <- c(
+  "Electricity" = "bolt-lightning",
+  "Gas" = "fire-flame-simple",
+  "Other" = "leaf",
+  "Petroleum" = "oil-well"
+) |>
+  enframe(name = "fuel_type", value = "fa_icon") 
+
+gt_fuel_tbl <-  energy_data_weca_max_year_all_sectors_tbl |> 
+  inner_join(fa_fuel_tbl, by = join_by("fuel_type" == "fuel_type")) |>
+  arrange(desc(pct_fuel)) |> 
+  glimpse()
+
+fuel_gt <- gt_fuel_tbl |>
+  select(fa_icon, fuel_type, pct_fuel) %>%
+  gt() |>
+  fmt_icon(
+    fa_icon
+  ) %>%
+  gt_plt_bar(
+    pct_fuel,
+    scale_type = "percent",
+    color = weca_core_colours[1],
+    width = 70
+  ) |> 
+  cols_label(
+    fa_icon = "",
+    fuel_type = "Fuel",
+    pct_fuel = glue("Contribution {max_year}")
+  ) %>%
+  cols_move_to_end(pct_fuel)
+
+fuel_gt
+
+```
