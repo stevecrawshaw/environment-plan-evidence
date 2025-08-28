@@ -2,7 +2,7 @@
 # minimally clean and stack the data by year for all LAs and output as parquet
 #  for onward analysis
 
-pacman::p_load(tidyverse, janitor, readxl, glue, arrow, duckdb, DBI)
+pacman::p_load(tidyverse, janitor, readxl, glue, arrow, duckdb, DBI, ellmer)
 # using the ONS spreadsheet
 path <- "data/mainfueltypeenglandandwales.xlsx"
 skip_rows <- 3
@@ -82,3 +82,55 @@ summary_mainheat_category_lep_tbl <- fuel_mainheat_categories_tbl |>
   mutate(pct = n / sum(n)) |>
   arrange(desc(n)) |>
   glimpse()
+
+# Using an LLM to help classify the main heating categories
+
+api_key = config::get(
+  config = "anthropic",
+  file = "../config.yml",
+  value = "apikey"
+)
+# painfully slow with perplexity, rate limits hit with gemini
+# anthropic probably the way to go for this sort of thing but so expensive!
+# how to fix - do it in json or batches?
+heat_chat <- chat_anthropic(
+  system_prompt = "You are a helpful data analyst assistant focused on accuracy.
+  You respond tersely with no additional commentary.",
+  # model = "sonar",
+  api_key = api_key
+)
+
+
+categorise_heat_type <- function(chat = heat_chat, description) {
+  prompt <- glue::glue(
+    "What is the main category of heating for the description.
+'{description}'
+The possible broad categories are:
+
+Gas Central Heating
+Oil Central Heating
+Community Scheme
+Heat pump
+Electric Storage Heating
+Other
+
+Take your time and be diligent and accurate.
+Answer ONLY with one of the categories above."
+  )
+  resp <- as.character(heat_chat$chat(prompt))
+  return(resp)
+}
+
+# testing the function
+out <- categorise_heat_type(
+  description = "Boiler and radiators, electric"
+)
+
+categorised_fuel_type_heating <- epc_domestic_fuel_tbl |>
+  rowwise() |>
+  mutate(
+    main_fuel_category = categorise_heat_type(
+      chat = heat_chat,
+      description = mainheat
+    )
+  )
