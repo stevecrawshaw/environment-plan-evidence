@@ -1,0 +1,86 @@
+---
+title: "Energy and Carbon Analysis for the South West of England"
+date: r`"(Sys.Date())"`
+author:
+  - name: Steve Crawshaw
+    email: steve.crawshaw@westofengland-ca.gov.uk
+    affiliation: 
+      - name: West of England Combined Authority
+      - city: Bristol
+abstract: | 
+  Data and analysis to support Regional Energy Planning.
+keywords:
+  - Carbon Reduction
+  - Energy Efficiency
+  - Regional Emissions
+license: "CC BY"
+copyright: 
+  holder: Steve Crawshaw
+  year: 2025
+  statement: "This work is licensed under a Creative Commons Attribution 4.0 International License."
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-summary: "Show/Hide Code"
+    fig-width: 8
+    fig-height: 5
+    fig-align: center
+    df-print: paged
+---
+
+```{r libraries}
+#| echo: FALSE
+pacman::p_load(tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras)
+```
+```{r global-variables}
+#| echo: FALSE
+# get named vector of colours from WECA brand guidelines
+neso_colors <- c(
+  "neso_maroon" = "#3f0731",
+  "neso_green" = "#617e4f",
+  "neso_light_maroon" = "#7a3864",
+  "neso_light_blue" = "#ebf3f6",
+  "neso_light_green" = "#f1f6ed",
+  "neso_light_pink" = "#f2ebf0",
+  "neso_lurid_pink" = "#ff00fe",
+  "neso_puce" = "#3f0340",
+  "neso_grey" = "#666666"
+)
+```
+
+
+## Introduction
+This document brings together data and analysis to support regional energy planning in the South West of England. It includes information on regional emissions, the whole energy system and future energy scenarios.
+
+## Data Sources
+The primary data sources used in this analysis include: <br>
+    - [Distribution Future Energy Scenarios (DFES)](https://connecteddata.nationalgrid.co.uk/dataset/dfes) <br>
+    - [UK local authority and regional carbon dioxide emissions national statistics (DESNZ)](https://www.gov.uk/government/statistics/uk-local-authority-and-regional-greenhouse-gas-emissions-statistics-2005-to-2023)
+    - [Regional Carbon Intensity Forecasts](https://www.neso.energy/data-portal/regional-carbon-intensity-forecast)
+    - [Energy Performance Certificates (EPC) for domestic properties in the West of England](https://opendata.westofengland-ca.gov.uk/explore/dataset/lep-epc-domestic-point/table/)
+
+
+```{r data-import}
+energy_data_all_la_tbl <- read_parquet("../environment-plan-evidence/data/clean_energy_la_long_tbl.parquet")
+# motherduck extension not available in windows!
+con <- dbConnect(duckdb::duckdb("data/regional_energy.duckdb"))
+con |> dbExecute("INSTALL spatial;")
+con |> dbExecute("LOAD spatial;")
+emissions_sw_tbl <- dbGetQuery(con, "FROM emissions_sw_tbl") |> collect()
+sw_la_tbl <- dbGetQuery(con, "FROM sw_la_tbl") |> collect()
+weca_epc_tbl <- dbGetQuery(con, "FROM weca_epc_tbl") |> collect()
+dfes_la_tbl <- dbGetQuery(con, "FROM dfes_la_tbl") |> collect()
+regional_carbon_intensity_tbl <- dbGetQuery(con, "FROM regional_carbon_intensity_tbl") |> collect()
+carbon_intensity_categories_tbl <- dbGetQuery(con, "FROM carbon_intensity_categories_tbl") |> collect()
+
+```
+
+```{r variables-from-data}
+#| echo: FALSE
+max_year <- max(energy_data_all_la_tbl$year)
+```
