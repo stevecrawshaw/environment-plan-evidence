@@ -85,6 +85,12 @@ prop_renewables_lep_latest_tbl <- generation_long_tbl |>
       str_to_sentence()
   )
 
+latest_generation_lep <- prop_renewables_lep_latest_tbl |>
+  summarise(total_generation = sum(generation_mwh, na.rm = TRUE)) |>
+  pull(total_generation)
+
+latest_generation_lep
+
 latest_renewable_by_source_la_plot <-
   prop_renewables_lep_latest_tbl |>
   filter(generation_mwh > 0) |>
