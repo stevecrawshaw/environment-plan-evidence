@@ -41,10 +41,8 @@ SELECT *,
 FROM read_csv('data/repd-q2-jul-2025.csv', normalize_names=true, ignore_errors=true);
 """
 con.sql(repd_sql)
-print("✅ Created table: repd_tbl")
+print(f"✅ Created table: repd_tbl with {con.table('repd_tbl').count()} records")
 
-# Display a sample of the created table
-con.table("repd_tbl").limit(5).pl()
 
 # %% [markdown]
 # ---
@@ -61,8 +59,9 @@ sheet='1a', range = 'A3:Y436', normalize_names=true, ignore_errors=true)
 WHERE local_authority_region_code LIKE 'E0%' AND apr25 IS NOT NULL;
 """
 con.sql(ev_chargepoints_sql)
-print("✅ Created table: ev_chargepoints_all_speeds_uk_la_tbl")
-con.table("ev_chargepoints_all_speeds_uk_la_tbl").limit(5).pl()
+print(
+    f"✅ Created table: ev_chargepoints_all_speeds_uk_la_tbl with {con.table('ev_chargepoints_all_speeds_uk_la_tbl').count()} records"
+)
 
 # %%
 # Table for public chargers per 100,000 population
@@ -76,9 +75,9 @@ sheet='2a', range = 'A3:Y436', normalize_names=true, ignore_errors=true)
 WHERE local_authority_region_code_note_5 LIKE 'E0%' AND apr25 IS NOT NULL;
 """
 con.sql(ev_chargepoints_per_cap_sql)
-print("✅ Created table: ev_chargepoints_all_speeds_uk_la_per_cap_tbl")
-con.table("ev_chargepoints_all_speeds_uk_la_per_cap_tbl").limit(5).pl()
-
+print(
+    f"✅ Created table: ev_chargepoints_all_speeds_uk_la_per_cap_tbl with {con.table('ev_chargepoints_all_speeds_uk_la_per_cap_tbl').count()} records"
+)
 
 # %% [markdown]
 # ---
@@ -91,8 +90,7 @@ CREATE OR REPLACE TABLE sw_la_tbl AS
 FROM ST_Read('https://opendata.westofengland-ca.gov.uk/api/explore/v2.1/catalog/datasets/local-authorities-districts-south-west-england/exports/geojson?lang=en&timezone=Europe%2FLondon');
 """
 con.sql(sw_la_sql)
-print("✅ Created table: sw_la_tbl")
-con.table("sw_la_tbl").limit(5).pl()
+print(f"✅ Created table: sw_la_tbl with {con.table('sw_la_tbl').count()} records")
 
 # %% [markdown]
 # ---
@@ -107,18 +105,14 @@ FROM read_csv('data/df_VEH0135.csv', normalize_names=true, ignore_errors=true)
 WHERE q1_2025_count != '[c]' AND (fuel = 'Battery electric' OR fuel LIKE 'Plug%');
 """
 con.sql(ev_reg_sql)
-print("✅ Created table: ev_reg_lsoa11_all_tbl")
-con.table("ev_reg_lsoa11_all_tbl").limit(5).pl()
-
+print(
+    f"✅ Created table: ev_reg_lsoa11_all_tbl with {con.table('ev_reg_lsoa11_all_tbl').count()} records"
+)
 
 # %% [markdown]
 # ---
 # ## 5. Subnational Electricity Consumption
 # This table contains the latest (2023) electricity consumption data for local authorities.
-
-# %%
-
-# %%
 
 
 def concat_sheets(yrs: list[int], path: str, con: duckdb.DuckDBPyConnection):
@@ -154,17 +148,14 @@ def concat_sheets(yrs: list[int], path: str, con: duckdb.DuckDBPyConnection):
 
 # %%
 yrs = range(2012, 2024)
-# yrs = [2012]
 path = "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx"
-
 
 # %%
 electricity_la_tbl = concat_sheets(yrs, path, con)
 electricity_la_tbl.create("electricity_la_tbl")
-print("✅ Created table: electricity_la_tbl")
-# %%
-
-# %%
+print(
+    f"✅ Created table: electricity_la_tbl with {con.table('electricity_la_tbl').count()} records"
+)
 
 # %% [markdown]
 # ---
@@ -180,8 +171,9 @@ SELECT * FROM read_xlsx('data/Sub-regional_fuel_poverty_statistics_2023.xlsx',
                 normalize_names=true);
 """
 con.sql(fuel_poverty_sql)
-print("✅ Created table: fuel_poverty_2023_lsoa21_tbl")
-con.table("fuel_poverty_2023_lsoa21_tbl").limit(5)
+print(
+    f"✅ Created table: fuel_poverty_2023_lsoa21_tbl with {con.table('fuel_poverty_2023_lsoa21_tbl').count()} records"
+)
 
 
 # %% [markdown]
@@ -196,8 +188,9 @@ SELECT lsoa11cd, lsoa11nm, ctyua21cd AS lad_code, ctyua21nm AS lad_name
 FROM read_xlsx('data/LSOA11_UTLA21_EW_LU.xlsx', normalize_names=true);
 """
 con.sql(lsoa_lookup_sql)
-print("✅ Created table: lsoa11_la_lookup_tbls")
-con.table("lsoa11_la_lookup_tbls").limit(5)
+print(
+    f"✅ Created table: lsoa11_la_lookup_tbls with {con.table('lsoa11_la_lookup_tbls').count()} records"
+)
 
 
 # %% [markdown]
@@ -213,8 +206,8 @@ con.sql(
     "CREATE OR REPLACE TABLE epc_domestic_cauth_tbl AS FROM ca_epc.epc_domestic_vw;"
 )
 con.sql("DETACH ca_epc;")
-print("✅ Created table: emissions_tbl")
-print("✅ Created table: epc_domestic_cauth_tbl")
+print("✅ Imported table: emissions_tbl")
+print("✅ Imported table: epc_domestic_cauth_tbl")
 
 
 # %% [markdown]
@@ -230,7 +223,6 @@ FROM ST_Read('https://opendata.westofengland-ca.gov.uk/api/explore/v2.1/catalog/
 """
 con.sql(lep_boundary_sql)
 print("✅ Created table: lep_boundary_tbl")
-con.table("lep_boundary_tbl").limit(5)
 
 # %%
 # Get renewables generation, capacity, and sites by LA
@@ -239,8 +231,9 @@ CREATE OR REPLACE TABLE uk_renewables_tbl AS
 FROM read_csv('data/all_renewables_tbl.csv');
 """
 con.sql(uk_renewables_sql)
-print("✅ Created table: uk_renewables_tbl")
-con.table("uk_renewables_tbl").limit(5)
+print(
+    f"✅ Created table: uk_renewables_tbl with {con.table('uk_renewables_tbl').count()} records"
+)
 
 # %% [markdown]
 # ---
@@ -254,8 +247,9 @@ CREATE OR REPLACE TABLE regional_carbon_intensity_tbl AS
 SELECT * FROM read_csv('data/regional_carbon_intensity.csv', normalize_names = true);
 """
 con.sql(regional_carbon_sql)
-print("✅ Created table: regional_carbon_intensity_tbl")
-con.table("regional_carbon_intensity_tbl").limit(5).pl()
+print(
+    f"✅ Created table: regional_carbon_intensity_tbl with {con.table('regional_carbon_intensity_tbl').count()} records"
+)
 
 # %%
 # Get the defined categories for carbon intensity levels
@@ -265,8 +259,9 @@ SELECT * EXCLUDE(very_high_upper_limit)
 FROM read_csv('data/carbon_intensity_categories.csv');
 """
 con.sql(carbon_categories_sql)
-print("✅ Created table: carbon_intensity_categories_tbl")
-con.table("carbon_intensity_categories_tbl").limit(5)
+print(
+    f"✅ Created table: carbon_intensity_categories_tbl with {con.table('carbon_intensity_categories_tbl').count()} records"
+)
 
 
 # %% [markdown]

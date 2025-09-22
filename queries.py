@@ -1,0 +1,105 @@
+# queries.py
+
+"""
+This module stores all the SQL queries and table creation commands
+for the energy data processing pipeline.
+"""
+
+TABLE_CREATION_QUERIES = [
+    {
+        "name": "repd_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE repd_tbl AS
+            SELECT *,
+                ST_Point(xcoordinate, ycoordinate)
+                .ST_Transform('EPSG:27700', 'EPSG:4326', always_xy := true) geometry
+            FROM read_csv('data/repd-q2-jul-2025.csv', normalize_names=true, ignore_errors=true);
+        """,
+    },
+    {
+        "name": "ev_chargepoints_all_speeds_uk_la_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE ev_chargepoints_all_speeds_uk_la_tbl AS
+            SELECT local_authority_region_code, local_authority_region_name, apr25
+            FROM read_xlsx('data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx',
+            sheet='1a', range = 'A3:Y436', normalize_names=true, ignore_errors=true)
+            WHERE local_authority_region_code LIKE 'E0%' AND apr25 IS NOT NULL;
+        """,
+    },
+    {
+        "name": "ev_chargepoints_all_speeds_uk_la_per_cap_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE ev_chargepoints_all_speeds_uk_la_per_cap_tbl AS
+            SELECT local_authority_region_code_note_5 AS local_authority_region_code,
+                   local_authority_region_name,
+                   apr25
+            FROM read_xlsx('data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx',
+            sheet='2a', range = 'A3:Y436', normalize_names=true, ignore_errors=true)
+            WHERE local_authority_region_code_note_5 LIKE 'E0%' AND apr25 IS NOT NULL;
+        """,
+    },
+    {
+        "name": "sw_la_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE sw_la_tbl AS
+            FROM ST_Read('https://opendata.westofengland-ca.gov.uk/api/explore/v2.1/catalog/datasets/local-authorities-districts-south-west-england/exports/geojson?lang=en&timezone=Europe%2FLondon');
+        """,
+    },
+    {
+        "name": "ev_reg_lsoa11_all_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE ev_reg_lsoa11_all_tbl AS
+            SELECT lsoa11cd, lsoa11nm, fuel, _2025_q1 AS q1_2025_count
+            FROM read_csv('data/df_VEH0135.csv', normalize_names=true, ignore_errors=true)
+            WHERE q1_2025_count != '[c]' AND (fuel = 'Battery electric' OR fuel LIKE 'Plug%');
+        """,
+    },
+    {
+        "name": "fuel_poverty_2023_lsoa21_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE fuel_poverty_2023_lsoa21_tbl AS
+            SELECT * FROM read_xlsx('data/Sub-regional_fuel_poverty_statistics_2023.xlsx',
+                            range = 'A3:H33758',
+                            sheet='Table 4',
+                            normalize_names=true);
+        """,
+    },
+    {
+        "name": "lsoa11_la_lookup_tbls",
+        "sql": """
+            CREATE OR REPLACE TABLE lsoa11_la_lookup_tbls AS
+            SELECT lsoa11cd, lsoa11nm, ctyua21cd AS lad_code, ctyua21nm AS lad_name
+            FROM read_xlsx('data/LSOA11_UTLA21_EW_LU.xlsx', normalize_names=true);
+        """,
+    },
+    # Note: External DB attachment is handled as a separate step in the main script
+    {
+        "name": "lep_boundary_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE lep_boundary_tbl AS
+            FROM ST_Read('https://opendata.westofengland-ca.gov.uk/api/explore/v2.1/catalog/datasets/lep-boundary/exports/fgb?lang=en&timezone=Europe%2FLondon');
+        """,
+    },
+    {
+        "name": "uk_renewables_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE uk_renewables_tbl AS
+            FROM read_csv('data/all_renewables_tbl.csv');
+        """,
+    },
+    {
+        "name": "regional_carbon_intensity_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE regional_carbon_intensity_tbl AS
+            SELECT * FROM read_csv('data/regional_carbon_intensity.csv', normalize_names = true);
+        """,
+    },
+    {
+        "name": "carbon_intensity_categories_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE carbon_intensity_categories_tbl AS
+            SELECT * EXCLUDE(very_high_upper_limit)
+            FROM read_csv('data/carbon_intensity_categories.csv');
+        """,
+    },
+]
