@@ -1,42 +1,59 @@
-# ingest the energy consumprion data for local authorities
-# minimally clean and stack the data by year for all LAs and output as parquet
-#  for onward analysis
+# Script to classify EPC main heating types into broader categories
+# and aggregate to LA level or combined authorities to understand
+# fuel use in housing stock
 
-pacman::p_load(tidyverse, janitor, readxl, glue, arrow, duckdb, DBI, ellmer)
-# using the ONS spreadsheet
+# Libraries ----
+pacman::p_load(
+  tidyverse,
+  glue,
+  duckdb,
+  DBI,
+  ellmer,
+  jsonlite,
+  readxl,
+  janitor
+)
+
+# Get the ONS fuel type by LA data ----
+
 path <- "data/mainfueltypeenglandandwales.xlsx"
 skip_rows <- 3
 sheet <- "2a"
 cells <- "A4:L322"
 
-domestic_fuel_tbl <- read_excel(
+ons_domestic_fuel_tbl <- read_excel(
   path = path,
   sheet = sheet,
   range = cells,
   col_names = TRUE,
   col_types = "text"
 ) |>
+  pivot_longer(
+    -c(
+      `Region code`,
+      `Region name`,
+      `Local authority district code`,
+      `Local authority district name`
+    ),
+    names_to = "fuel_type",
+    values_to = "pct_domestic_properties"
+  ) |>
   clean_names() |>
-  # glimpse()
-
   rename(
     "ladnm" = "local_authority_district_name",
     "ladcd" = "local_authority_district_code"
   ) |>
   mutate(across(
-    -c(region_code, region_name, ladnm, ladcd),
+    -c(region_code, region_name, ladnm, ladcd, fuel_type),
     as.numeric
   )) |>
   arrange(region_code, region_name, ladnm, ladcd) |>
-  pivot_longer(
-    -c(region_code, region_name, ladnm, ladcd),
-    names_to = "fuel_type",
-    values_to = "pct_domestic_properties"
-  ) |>
   glimpse()
 
+(fuel_categories <- unique(ons_domestic_fuel_tbl$fuel_type))
 
-# using the EPC data
+
+# Access EPC data from a DuckDB database ----
 
 con <- dbConnect(
   duckdb::duckdb(),
@@ -46,91 +63,239 @@ con <- dbConnect(
 
 con |> dbExecute("INSTALL SPATIAL;")
 con |> dbExecute("LOAD SPATIAL;")
+con |> dbGetQuery("SHOW TABLES;")
 
-tables <- con |> dbGetQuery("SHOW TABLES;")
-
-
+# Just get the unique main heating descriptions and counts
 epc_domestic_fuel_tbl <- dbGetQuery(
   con,
   "SELECT
-    COUNT(*) AS n_properties,
-    MAINHEAT_DESCRIPTION mainheat,
-   FROM epc_domestic_ods_vw
+   DISTINCT MAINHEAT_DESCRIPTION mainheat,
+   FROM epc_domestic_vw
+   WHERE MAINHEAT_DESCRIPTION IS NOT NULL
+   AND LODGEMENT_DATE <= date'2024-03-31'
    GROUP BY mainheat"
+) |>
+  as_tibble() |>
+  rownames_to_column("id") |>
+  mutate(
+    # include an ID to help with tracking items through the process
+    mainheat_clean = str_c(
+      id,
+      "_",
+      str_replace_all(mainheat, "[^a-zA-Z\\d\\s:]", " ") |>
+        str_squish()
+    )
+  ) |>
+  glimpse()
+
+# a list of the unique main heating descriptions
+# The EPC data is very messy so there are over 700 unique descriptions
+# From a dataset that covers all combined authorities in England
+(description_list <- (epc_domestic_fuel_tbl$mainheat_clean))
+
+chunk_vector <- function(vec, n) {
+  # Create the grouping factor
+  grouping_factor <- (seq_along(vec) - 1) %/% n
+
+  # Split the vector and return the list
+  split(vec, grouping_factor)
+}
+
+# chunk up the input vector as the LLM API struggles with a long context
+chunked_description_list <- chunk_vector(description_list, 100)
+
+# Using an LLM to help classify the main heating categories ----
+
+# Get the API key from a config file
+api_key = config::get(
+  config = "openrouter",
+  file = "../config.yml",
+  value = "apikey"
+)
+
+# create a chat object with a system prompt to set the behaviour
+# Model chosen to give a good balance of cost and performance
+heat_chat <- chat_openrouter(
+  system_prompt = "You are an expert data categorization assistant.
+  You follow instructions precisely and return only the requested format.",
+  api_key = api_key,
+  model = "google/gemini-2.5-flash-lite",
+  echo = "none"
+)
+
+categorise_heat_type <- function(
+  chat = heat_chat,
+  description_list,
+  fuel_categories
+) {
+  # The improved prompt is more structured with clear sections, rules, and examples.
+  prompt <- glue(
+    "## TASK
+You will classify each item in a list of home heating descriptions into a single, predefined category.
+
+## CATEGORIES
+You must use ONLY one of the following categories for each item:
+{toString(fuel_categories)}
+
+## RULES
+1.  **'Mains gas'**: Assign for systems using natural gas from the grid (e.g., 'gas central heating', 'gas boiler').
+2.  **'Electricity'**: Assign for systems primarily powered by electricity (e.g., 'electric storage heaters', 'electric boiler').
+3.  **'Oil'**: Assign for systems that use heating oil.
+4.  **'Community heating scheme'**: Assign for any shared or communal source (e.g., 'district heating', 'communal boiler').
+5.  **'Renewable energy(including heat pumps)'**: Assign for a *single* renewable source like 'air source heat pump', 'ground source heat pump', or 'solar heating'.
+6.  **'Other and unknown'**: This is a catch-all category. Use it for:
+    -   Solid fuels (coal, wood, biomass).
+    -   Tank or bottled gas (LPG).
+    -   Vague descriptions ('unknown', 'n/a', 'warm air unit' without a fuel type).
+    -   Other specific biofuels (B30K, bioethanol).
+7.  **'Two or more(not including renewable energy)'**: Assign ONLY when two or more distinct, non-renewable systems are listed (e.g., 'mains gas and electric storage heaters').
+8.  **'Two or more(including renewable energy)'**: Assign ONLY when a renewable system is listed alongside any other system (e.g., 'air source heat pump with gas boiler').
+9.  ** The number and underscore at the start of each item is an ID and must be retained in the output.
+
+## OUTPUT FORMAT
+- The output must be ONLY the original item (with the id number), a pipe and a space '| ', and the category.
+- Each item must be on a new line.
+- Do not add any commentary, explanations, or text before or after the list.
+
+## EXAMPLES
+- Input: '1_Gas Central Heating' -> Output: 1_Gas Central Heating| Mains gas
+- Input: '3_ASHP' -> Output: 3_ASHP| Renewable energy(including heat pumps)
+- Input: '101_LPG boiler' -> Output: 101_LPG boiler| Other and unknown
+- Input: '324_Communal System' -> Output: 324_Communal System| Community heating scheme
+- Input: '6_Oil boiler and solar panels' -> Output: 6_Oil boiler and solar panels| Two or more(including renewable energy)
+
+## YOUR TURN
+Now, categorize every item in this list:
+'{toString(description_list)}'"
+  )
+  resp <- (heat_chat$chat(prompt))
+  return(resp)
+}
+# provide the entire list of descriptions to categorise
+# rather than one at a time to avoid rate limits
+# this uses very few tokens
+
+mainheat_category_table <- read_rds("data/mainheat_category_table.rds")
+
+# THIS LINE COSTS MONEY TO RUN ----------------
+# Apply the function to each chunk of the description list
+cr_list <- chunked_description_list |>
+  map(~ categorise_heat_type(heat_chat, .x, fuel_categories))
+
+#------------------------------------------
+
+# now parse the output into a table, joining with the original data
+mainheat_category_table <- cr_list |>
+  map(
+    ~ read_delim(
+      .x,
+      delim = "| ",
+      col_names = c("mainheat_clean", "category")
+    )
+  ) |>
+  bind_rows() |>
+  mutate(mainheat_clean = str_remove_all(mainheat_clean, "'")) |>
+  separate_wider_delim(
+    cols = mainheat_clean,
+    delim = "_",
+    names = c("id", "mainheat_chat_out")
+  ) |>
+  inner_join(
+    epc_domestic_fuel_tbl,
+    by = join_by("id" == "id")
+  )
+
+mainheat_category_table |> write_rds("data/mainheat_category_table.rds")
+
+# Query the EPC data again to get counts of properties
+# by main heating description and Combined Authority
+
+cauth_qry <- "SELECT 
+    ca.cauthnm combined_authority,
+    epc.MAINHEAT_DESCRIPTION mainheat_description,
+    COUNT(*) AS n_properties
+   FROM epc_domestic_vw epc INNER JOIN ca_la_tbl ca
+   ON epc.LOCAL_AUTHORITY = ca.ladcd
+   WHERE epc.LODGEMENT_DATE <= date'2024-03-31'
+   GROUP BY cauthnm, mainheat_description"
+
+la_query <- "SELECT 
+    epc.LOCAL_AUTHORITY_LABEL local_authority_label,
+    epc.LOCAL_AUTHORITY local_authority_code,
+    epc.MAINHEAT_DESCRIPTION mainheat_description,
+    COUNT(*) AS n_properties
+   FROM epc_domestic_vw epc
+   WHERE epc.LODGEMENT_DATE <= date'2024-03-31'
+   GROUP BY LOCAL_AUTHORITY_LABEL,
+            LOCAL_AUTHORITY,
+            mainheat_description"
+
+epc_ca_mainheat_tbl <- dbGetQuery(
+  con,
+  la_query
 ) |>
   as_tibble() |>
   glimpse()
 
-epc_domestic_fuel_tbl |>
-  arrange(desc(n_properties)) |>
-  write_delim(
-    file = "data/epc_domestic_fuel_types.txt",
-    delim = "|"
-  )
 
-# fuel source categories derived from the EPC data by gemini
-#https://g.co/gemini/share/c5c2c07ca31d
-#https://docs.google.com/spreadsheets/d/1I0xf4KV98edBeGvQoQu5_0XCS-uzba4910EyWypUoXg/edit?gid=2063792901#gid=2063792901
-
-fuel_mainheat_categories_tbl <- read_tsv(
-  "data/epc_fuel_main_heating_lep_2025.tsv"
-)
-
-summary_mainheat_category_lep_tbl <- fuel_mainheat_categories_tbl |>
-  group_by(main_fuel_category) |>
-  summarise(n = sum(n_properties), .groups = "drop") |>
-  mutate(pct = n / sum(n)) |>
-  arrange(desc(n)) |>
+summary_mainheat_category_tbl <- epc_ca_mainheat_tbl |>
+  inner_join(
+    mainheat_category_table,
+    by = join_by("mainheat_description" == "mainheat")
+  ) |>
+  group_by(local_authority_code, local_authority_label, category) |>
+  summarise(n = sum(n_properties), .groups = "drop_last") |>
+  mutate(pct = n * 100 / sum(n)) |>
+  arrange(local_authority_label, category) |>
   glimpse()
 
-# Using an LLM to help classify the main heating categories
+# Now we need to vaidate against
+# the LA data in main_fuel_heating_type_all_la.r -------
 
-api_key = config::get(
-  config = "anthropic",
-  file = "../config.yml",
-  value = "apikey"
-)
-# painfully slow with perplexity, rate limits hit with gemini
-# anthropic probably the way to go for this sort of thing but so expensive!
-# how to fix - do it in json or batches?
-heat_chat <- chat_anthropic(
-  system_prompt = "You are a helpful data analyst assistant focused on accuracy.
-  You respond tersely with no additional commentary.",
-  # model = "sonar",
-  api_key = api_key
-)
+la_codes <- summary_mainheat_category_tbl |>
+  distinct(local_authority_code) |>
+  arrange(local_authority_code) |>
+  pull()
 
+ons_domestic_fuel_la_tbl <- ons_domestic_fuel_tbl |>
+  filter(ladcd %in% la_codes, fuel_type %in% fuel_categories) |>
+  select(ladcd, ladnm, fuel_type, pct_domestic_properties) |>
+  glimpse()
 
-categorise_heat_type <- function(chat = heat_chat, description) {
-  prompt <- glue::glue(
-    "What is the main category of heating for the description.
-'{description}'
-The possible broad categories are:
+# Join the two datasets for comparison
 
-Gas Central Heating
-Oil Central Heating
-Community Scheme
-Heat pump
-Electric Storage Heating
-Other
-
-Take your time and be diligent and accurate.
-Answer ONLY with one of the categories above."
-  )
-  resp <- as.character(heat_chat$chat(prompt))
-  return(resp)
-}
-
-# testing the function
-out <- categorise_heat_type(
-  description = "Boiler and radiators, electric"
-)
-
-categorised_fuel_type_heating <- epc_domestic_fuel_tbl |>
-  rowwise() |>
+comparison_tbl <- summary_mainheat_category_tbl |>
+  rename(
+    "ladcd" = "local_authority_code",
+    "fuel_type" = "category",
+    "pct_epc_properties" = "pct"
+  ) |>
+  inner_join(
+    ons_domestic_fuel_la_tbl,
+    by = join_by("ladcd", "fuel_type")
+  ) |>
   mutate(
-    main_fuel_category = categorise_heat_type(
-      chat = heat_chat,
-      description = mainheat
-    )
+    diff_pct = pct_epc_properties - pct_domestic_properties,
+    abs_diff_pct = abs(diff_pct)
+  ) |>
+  arrange(ladcd, ladnm, fuel_type) |>
+  glimpse()
+
+lep_las <- c("E06000022", "E06000023", "E06000024", "E06000025")
+
+comparison_tbl |>
+  filter(!is.na(diff_pct)) |>
+  ggplot(aes(x = ladnm, y = diff_pct, color = fuel_type)) +
+  geom_jitter(show.legend = FALSE) +
+  labs(
+    title = "Difference in domestic fuel type proportions",
+    subtitle = "Comparison of EPC data and ONS LA level data",
+    caption = "Source: ONS (2023) and MCA analysis of EPC data to March 2024",
+    x = "Fuel type",
+    y = "EPC - ONS percentage points"
+  ) +
+  theme_minimal() +
+  coord_flip() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
   )
