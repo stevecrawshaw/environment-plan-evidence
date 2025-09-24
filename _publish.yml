@@ -1,0 +1,4 @@
+- source: fuel-categorisation-with-llm.qmd
+  quarto-pub:
+    - id: 4bd402da-a3fd-4dc0-9b0d-f7b4e031e683
+      url: https://stevecrawshaw.quarto.pub/using-an-llm-to-classify-domestic-fuel-types

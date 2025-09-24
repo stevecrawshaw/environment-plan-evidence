@@ -1,0 +1,434 @@
+---
+title: "Using an LLM to Classify Domestic Fuel Types"
+subtitle: "A comparison of EPC data categorized by an LLM against ONS data"
+author: "Steve Crawshaw"
+date: "2024-09-24"
+format: 
+  html:
+    toc: true
+    code-fold: true
+    self-contained: true
+chunk-options:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+  fig-align: "center"
+  out.width: "100%"
+  dpi: 96
+---
+
+## Introduction
+
+This document demonstrates a data processing workflow that uses a Large Language Model (LLM) to categorize free-text descriptions of domestic heating systems from Energy Performance Certificate (EPC) data.
+
+The goal is to transform the messy, inconsistent EPC heating descriptions into standardized categories that align with those used by the Office for National Statistics (ONS). We will then aggregate the categorized EPC data to the Local Authority (LA) level and compare the resulting fuel type proportions against a published ONS dataset to validate the accuracy of our LLM-based approach.
+
+The key steps are:  
+1.  Load and process the ONS benchmark data.  
+2.  Extract unique, messy heating descriptions from the EPC database.  
+3.  Use a Google Gemini model via the `{ellmer}` package to classify these descriptions into the ONS categories.  
+4.  Aggregate the newly classified EPC data by Local Authority.  
+5.  Join the EPC and ONS data to compare the percentage of households in each fuel category.  
+6.  Visualize the comparison to assess the LLM's performance.  
+
+---
+
+## 1. Setup and ONS Data Preparation
+
+First, we load the necessary R libraries for data manipulation, database connection, and visualization.
+
+```{r}
+#| label: setup
+
+# Libraries ----
+pacman::p_load(
+  tidyverse,
+  glue,
+  duckdb,
+  DBI,
+  ellmer,
+  jsonlite,
+  readxl,
+  janitor,
+  gt
+)
+```
+
+Next, we load the official data on [domestic fuel types from an ONS spreadsheet](https://www.ons.gov.uk/peoplepopulationandcommunity/housing/datasets/mainfueltypeormethodofheatingusedincentralheatingenglandandwales). These data provide the percentage of households using different main fuel types for each Local Authority in England and Wales. We'll clean and pivot this data into a tidy format for later comparison.
+
+```{r}
+#| label: load-ons-data
+#| warning: false
+#| message: false
+# Get the ONS fuel type by LA data ----
+path <- "data/mainfueltypeenglandandwales.xlsx"
+skip_rows <- 3
+sheet <- "2a"
+cells <- "A4:L322"
+
+ons_domestic_fuel_tbl <- read_excel(
+  path = path,
+  sheet = sheet,
+  range = cells,
+  col_names = TRUE,
+  col_types = "text"
+) |>
+  pivot_longer(
+    -c(
+      `Region code`,
+      `Region name`,
+      `Local authority district code`,
+      `Local authority district name`
+    ),
+    names_to = "fuel_type",
+    values_to = "pct_domestic_properties_ons"
+  ) |>
+  clean_names() |>
+  rename(
+    "ladnm" = "local_authority_district_name",
+    "ladcd" = "local_authority_district_code"
+  ) |>
+  mutate(across(
+    -c(region_code, region_name, ladnm, ladcd, fuel_type),
+    as.numeric
+  )) |>
+  arrange(region_code, region_name, ladnm, ladcd)
+
+# We store the fuel categories from the ONS data to use as our target categories.
+fuel_categories <- unique(ons_domestic_fuel_tbl$fuel_type)
+
+enframe(fuel_categories, name = NULL, value = "fuel_category") |>
+  gt() |>
+  tab_header(
+    title = md("**ONS Domestic Fuel Type Categories**"),
+    subtitle = "These are the target categories for the LLM classification"
+  ) |>
+  fmt_markdown(columns = fuel_category) |>
+  cols_label(fuel_category = md("**Fuel Category**")) |>
+  opt_align_table_header("left") 
+
+```
+
+-----
+
+## 2\. EPC Data Extraction and Preparation
+
+The EPC data is stored in a [DuckDB](https://duckdb.org/) database. We connect to the database and extract the unique `MAINHEAT_DESCRIPTION` entries. This field is free-text, resulting in over 600 unique, messy descriptions that need standardization. Some entries are in Welsh, and many contain typos or unconventional formatting.
+
+We minimally clean the text by removing special characters and extra spaces, and we add an ID prefix to each description to help track them through the LLM processing.
+
+```{r}
+#| label: get-epc-data
+#| message: false
+
+# Access EPC data from a DuckDB database ----
+con <- dbConnect(
+  duckdb::duckdb(),
+  dbdir = "../mca-data/data/ca_epc.duckdb",
+  read_only = TRUE
+)
+# send query doesn't return anything, just runs the command
+# we need to include this to query the EPC dataset, because it contains a geometry column
+DBI::dbSendQuery(con, "LOAD SPATIAL;")
+
+# Just get the unique main heating descriptions
+epc_domestic_fuel_tbl <- dbGetQuery(
+  con,
+  "SELECT
+   DISTINCT MAINHEAT_DESCRIPTION mainheat,
+   FROM epc_domestic_vw
+   WHERE MAINHEAT_DESCRIPTION IS NOT NULL
+   AND LODGEMENT_DATE <= date'2024-03-31'
+   GROUP BY mainheat"
+) |>
+  as_tibble() |>
+  rownames_to_column("id") |>
+  mutate(
+    # Clean the text and add an ID for processing
+    mainheat_clean = str_c(
+      id,
+      "_",
+      str_replace_all(mainheat, "[^a-zA-Z\\d\\s:]", " ") |>
+        str_squish()
+    )
+  )
+```
+There are `r nrow(epc_domestic_fuel_tbl) ` unique heating descriptions to classify.
+
+-----
+
+## 3\. Categorization using an LLM
+
+This is the core of the analysis. We use a function to send the list of heating descriptions to an LLM with a carefully crafted prompt. The prompt instructs the model to classify each description into one of the predefined ONS fuel categories.
+
+### 3.1. Prompt Engineering
+
+The function `categorise_heat_type` constructs a detailed prompt. It specifies the **task**, the exact **categories** to use, a set of **rules** for classification, and the required **output format**, including examples. This structured approach ensures the model's responses are accurate and consistent. The prompt itself was optimised by passing a [manually constructed prompt to Gemini for feedback and refinement](https://g.co/gemini/share/44a81624f4f0).
+
+The `{ellmer}` package is used to interface with the LLM API. A number of model providers are supported in the package; here we use Google Gemini via the OpenRouter API. Openrouter gives access to a variety of models from different providers, including Gemini, Llama 3 and others. You will need to sign up for an OpenRouter account and get an API key to run this code. A typical call for this purpose costs a few pence.
+
+Note the use of the `toString()` function to format the list of categories and descriptions into a single string for inclusion in the prompt. Also, since the LLM can struggle with very long inputs, we break the list of descriptions into smaller chunks using a helper function `chunk_vector`.
+
+```{r}
+#| label: llm-function
+#| echo: true
+
+# This is the list of unique descriptions we need to classify
+description_list <- (epc_domestic_fuel_tbl$mainheat_clean)
+
+# The LLM API can struggle with very long inputs, so we need a helper 
+# function to break our list into smaller chunks.
+chunk_vector <- function(vec, n) {
+  grouping_factor <- (seq_along(vec) - 1) %/% n
+  split(vec, grouping_factor)
+}
+
+chunked_description_list <- chunk_vector(description_list, 100)
+
+# This function defines the chat session and the detailed prompt
+categorise_heat_type <- function(
+  chat,
+  description_list,
+  fuel_categories
+) {
+  prompt <- glue(
+    "## TASK
+You will classify each item in a list of home heating descriptions into a single, predefined category.
+
+## CATEGORIES
+You must use ONLY one of the following categories for each item:
+{toString(fuel_categories)}
+
+## RULES
+1.  **'Mains gas'**: Assign for systems using natural gas from the grid (e.g., 'gas central heating', 'gas boiler').
+2.  **'Electricity'**: Assign for systems primarily powered by electricity (e.g., 'electric storage heaters', 'electric boiler').
+3.  **'Oil'**: Assign for systems that use heating oil.
+4.  **'Community heating scheme'**: Assign for any shared or communal source (e.g., 'district heating', 'communal boiler').
+5.  **'Renewable energy(including heat pumps)'**: Assign for a *single* renewable source like 'air source heat pump', 'ground source heat pump', or 'solar heating'.
+6.  **'Other and unknown'**: This is a catch-all category. Use it for solid fuels (coal, wood), tank/bottled gas (LPG), vague descriptions, or other biofuels.
+7.  **'Two or more(not including renewable energy)'**: Assign ONLY when two or more distinct, non-renewable systems are listed.
+8.  **'Two or more(including renewable energy)'**: Assign ONLY when a renewable system is listed alongside any other system.
+9.  **The number and underscore at the start of each item is an ID and must be retained in the output.**
+
+## OUTPUT FORMAT
+- The output must be ONLY the original item (with the id number), a pipe and a space '| ', and the category.
+- Each item must be on a new line.
+- Do not add any commentary, explanations, or text before or after the list.
+
+## YOUR TURN
+Now, categorize every item in this list:
+'{toString(description_list)}'"
+  )
+  resp <- (chat$chat(prompt))
+  return(resp)
+}
+```
+
+### 3.2. Executing the Classification
+
+**Note:** The following code block, which makes the API call to the LLM, is not executed in this document to avoid incurring costs. Instead, we load a pre-computed file containing the classification results.
+
+```{r}
+#| label: run-llm
+#| eval: false
+
+# Get the API key from a config file - NOT COMMITTED TO GITHUB
+api_key = config::get(
+  config = "openrouter",
+  file = "../config.yml",
+  value = "apikey"
+)
+
+# create a chat object with a system prompt to set the behaviour
+heat_chat <- chat_openrouter(
+  system_prompt = "You are an expert data categorization assistant.
+  You follow instructions precisely and return only the requested format.",
+  api_key = api_key,
+  model = "google/gemini-2.5-flash-lite",
+  echo = "none"
+)
+
+# THIS CODE COSTS MONEY TO RUN
+# Apply the function to each chunk of the description list
+cr_list <- chunked_description_list |>
+  map(~ categorise_heat_type(heat_chat, .x, fuel_categories))
+
+# Parse the output into a table and save it
+mainheat_category_table <- cr_list |>
+  map(
+    ~ read_delim(
+      .x,
+      delim = "| ",
+      col_names = c("mainheat_clean", "category")
+    )
+  ) |>
+  bind_rows() |>
+  mutate(mainheat_clean = str_remove_all(mainheat_clean, "'")) |>
+  separate_wider_delim(
+    cols = mainheat_clean,
+    delim = "_",
+    names = c("id", "mainheat_chat_out")
+  ) |>
+  inner_join(
+    epc_domestic_fuel_tbl,
+    by = join_by("id" == "id")
+  )
+
+# Save the results for future use (without - rerunning the LLM)
+mainheat_category_table |> write_rds("data/mainheat_category_table.rds")
+
+```
+
+We now load the saved results from the LLM classification. The output is a table linking each original heating description to its assigned category.
+
+```{r}
+#| label: load-llm-results
+
+mainheat_category_table <- read_rds("data/mainheat_category_table.rds")
+
+mainheat_category_table |> 
+    head(10) |>
+    gt() |>
+    tab_header(
+      title = md("**Sample of LLM Categorised Heating Descriptions**"),
+      subtitle = "Showing the original description and the assigned category"
+    ) 
+
+```
+
+-----
+
+## 4\. Aggregation and Comparison
+
+With the heating descriptions classified, we query the EPC database again to get the count of properties for each heating type within each Local Authority.
+
+```{r}
+#| label: aggregate-epc-data
+
+la_query <- "SELECT 
+    epc.LOCAL_AUTHORITY_LABEL local_authority_label,
+    epc.LOCAL_AUTHORITY local_authority_code,
+    epc.MAINHEAT_DESCRIPTION mainheat_description,
+    COUNT(*) AS n_properties
+   FROM epc_domestic_vw epc
+   WHERE epc.LODGEMENT_DATE <= date'2024-03-31'
+   GROUP BY LOCAL_AUTHORITY_LABEL,
+            LOCAL_AUTHORITY,
+            mainheat_description"
+
+epc_la_mainheat_tbl <- dbGetQuery(
+  con,
+  la_query
+) |>
+  as_tibble()
+```
+
+We then join our LLM classifications with these counts and calculate the percentage of properties in each category for each LA. This gives us a dataset directly comparable to the ONS data.
+
+```{r}
+#| label: summarise-epc-proportions
+
+summary_mainheat_category_tbl <- epc_la_mainheat_tbl |>
+  inner_join(
+    mainheat_category_table,
+    by = join_by("mainheat_description" == "mainheat")
+  ) |>
+  group_by(local_authority_code, local_authority_label, category) |>
+  summarise(n = sum(n_properties), .groups = "drop_last") |>
+  mutate(pct_domestic_properties_epc_llm = n * 100 / sum(n)) |>
+  arrange(local_authority_label, category)
+
+summary_mainheat_category_tbl |> 
+    head(5) |> 
+    gt() |>
+    tab_header(
+      title = md("**Sample of Summarised EPC Data by LA and Fuel Category**"),
+      subtitle = "Showing the count and percentage of properties in each category"
+    )
+```
+
+Finally, we join our summarized EPC data with the ONS data to create a final comparison table, calculating the difference between the percentages from the two sources.
+
+```{r}
+#| label: create-comparison-table
+
+# Filter ONS data to only include LAs present in our EPC sample
+la_codes <- summary_mainheat_category_tbl |>
+  distinct(local_authority_code) |>
+  pull()
+
+ons_domestic_fuel_la_tbl <- ons_domestic_fuel_tbl |>
+  filter(ladcd %in% la_codes, fuel_type %in% fuel_categories) |>
+  select(ladcd, ladnm, fuel_type, pct_domestic_properties_ons)
+
+# Join the two datasets for comparison
+comparison_tbl <- summary_mainheat_category_tbl |>
+  rename(
+    "ladcd" = "local_authority_code",
+    "fuel_type" = "category"
+  ) |>
+  inner_join(
+    ons_domestic_fuel_la_tbl,
+    by = join_by("ladcd", "fuel_type")
+  ) |>
+  mutate(
+    diff_pct = pct_domestic_properties_epc_llm - pct_domestic_properties_ons,
+    abs_diff_pct = abs(diff_pct)
+  ) |>
+  arrange(ladcd, ladnm, fuel_type)
+
+comparison_tbl |> 
+    head(5) |> 
+    gt() |>
+    tab_header(
+      title = md("**Sample of Comparison Table**"),
+      subtitle = "Showing the predicted percentages (epc_llm) alongside ONS percentages"
+    )
+```
+
+-----
+
+## 5\. Visualization and Conclusion
+
+To assess the performance of the LLM classification, we create a scatter plot comparing the ONS percentages (x-axis) with our EPC-LLM percentages (y-axis) for each fuel category. If the classification is accurate, the points should fall close to the y = x line.
+
+```{r}
+#| label: visualize-comparison
+#| fig-width: 10
+#| fig-height: 8
+
+# Visualise the comparison using a scatter plot
+comparison_scatter_plot <- comparison_tbl |>
+  ggplot(aes(
+    x = pct_domestic_properties_ons,
+    y = pct_domestic_properties_epc_llm
+  )) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(
+    x = "ONS category percentage",
+    y = "Predicted percentage from EPC + LLM",
+    title = "Comparison of Domestic Fuel Type Proportions",
+    subtitle = "Predicted EPC Fuel Category vs. ONS LA-level Data",
+    caption = "Source: ONS and analysis of EPC data to March 2024"
+  ) +
+  facet_wrap(~fuel_type, scales = "free", ncol = 2) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12)
+  )
+
+comparison_scatter_plot
+```
+
+### Conclusion
+
+The plots show a strong positive correlation between the LLM-derived percentages and the official ONS statistics, especially for the most common categories like **Mains gas** and **Electricity**. The points for these categories cluster tightly around the red dashed line, indicating high agreement.
+
+For less common categories like **Oil** and **Community heating schemes**, there is more variance, but the overall trend is still positive. The **"Other and unknown"** category shows significant scatter, which is expected given it's a catch-all for various fuel types (solid fuel, LPG, etc.) that may be classified differently by the ONS.
+
+The categories involving multiple fuel types (**Two or more (including renewable energy)** and **Two or more (not including renewable energy)**) have a far less defined correlation and higher variance. The overall percentages for these categories are also very low, making accurate prediction more challenging. This is an area where further refinement of the prompt or additional training data could improve results.
+
+Overall, this analysis demonstrates that an LLM can be a powerful and effective tool for cleaning and standardizing messy, real-world data, producing results that align closely with official statistics. Integration of the LLM workflow into the broader data processing pipeline using a library like `{ellmer}` can enhance reproducibility and encapsulate the predictive workflow more gracefully than using an external chatbot like Gemini through copy and paste routines.

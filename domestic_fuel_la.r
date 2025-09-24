@@ -36,7 +36,7 @@ ons_domestic_fuel_tbl <- read_excel(
       `Local authority district name`
     ),
     names_to = "fuel_type",
-    values_to = "pct_domestic_properties"
+    values_to = "pct_domestic_properties_ons"
   ) |>
   clean_names() |>
   rename(
@@ -61,9 +61,16 @@ con <- dbConnect(
   read_only = TRUE
 )
 
-con |> dbExecute("INSTALL SPATIAL;")
 con |> dbExecute("LOAD SPATIAL;")
-con |> dbGetQuery("SHOW TABLES;")
+
+# Utility function to chunk a vector into smaller pieces
+chunk_vector <- function(vec, n) {
+  # Create the grouping factor
+  grouping_factor <- (seq_along(vec) - 1) %/% n
+
+  # Split the vector and return the list
+  split(vec, grouping_factor)
+}
 
 # Just get the unique main heating descriptions and counts
 epc_domestic_fuel_tbl <- dbGetQuery(
@@ -91,15 +98,9 @@ epc_domestic_fuel_tbl <- dbGetQuery(
 # a list of the unique main heating descriptions
 # The EPC data is very messy so there are over 700 unique descriptions
 # From a dataset that covers all combined authorities in England
-(description_list <- (epc_domestic_fuel_tbl$mainheat_clean))
+description_list <- (epc_domestic_fuel_tbl$mainheat_clean)
 
-chunk_vector <- function(vec, n) {
-  # Create the grouping factor
-  grouping_factor <- (seq_along(vec) - 1) %/% n
-
-  # Split the vector and return the list
-  split(vec, grouping_factor)
-}
+description_list |> sample(10)
 
 # chunk up the input vector as the LLM API struggles with a long context
 chunked_description_list <- chunk_vector(description_list, 100)
@@ -179,8 +180,8 @@ mainheat_category_table <- read_rds("data/mainheat_category_table.rds")
 
 # THIS LINE COSTS MONEY TO RUN ----------------
 # Apply the function to each chunk of the description list
-cr_list <- chunked_description_list |>
-  map(~ categorise_heat_type(heat_chat, .x, fuel_categories))
+# cr_list <- chunked_description_list |>
+#   map(~ categorise_heat_type(heat_chat, .x, fuel_categories))
 
 #------------------------------------------
 
@@ -245,7 +246,7 @@ summary_mainheat_category_tbl <- epc_ca_mainheat_tbl |>
   ) |>
   group_by(local_authority_code, local_authority_label, category) |>
   summarise(n = sum(n_properties), .groups = "drop_last") |>
-  mutate(pct = n * 100 / sum(n)) |>
+  mutate(pct_domestic_properties_epc_llm = n * 100 / sum(n)) |>
   arrange(local_authority_label, category) |>
   glimpse()
 
@@ -259,7 +260,7 @@ la_codes <- summary_mainheat_category_tbl |>
 
 ons_domestic_fuel_la_tbl <- ons_domestic_fuel_tbl |>
   filter(ladcd %in% la_codes, fuel_type %in% fuel_categories) |>
-  select(ladcd, ladnm, fuel_type, pct_domestic_properties) |>
+  select(ladcd, ladnm, fuel_type, pct_domestic_properties_ons) |>
   glimpse()
 
 # Join the two datasets for comparison
@@ -267,35 +268,39 @@ ons_domestic_fuel_la_tbl <- ons_domestic_fuel_tbl |>
 comparison_tbl <- summary_mainheat_category_tbl |>
   rename(
     "ladcd" = "local_authority_code",
-    "fuel_type" = "category",
-    "pct_epc_properties" = "pct"
+    "fuel_type" = "category"
   ) |>
   inner_join(
     ons_domestic_fuel_la_tbl,
     by = join_by("ladcd", "fuel_type")
   ) |>
   mutate(
-    diff_pct = pct_epc_properties - pct_domestic_properties,
+    diff_pct = pct_domestic_properties_epc_llm - pct_domestic_properties_ons,
     abs_diff_pct = abs(diff_pct)
   ) |>
   arrange(ladcd, ladnm, fuel_type) |>
   glimpse()
 
-lep_las <- c("E06000022", "E06000023", "E06000024", "E06000025")
-
-comparison_tbl |>
-  filter(!is.na(diff_pct)) |>
-  ggplot(aes(x = ladnm, y = diff_pct, color = fuel_type)) +
-  geom_jitter(show.legend = FALSE) +
+# Visualise the comparison ----
+# using a scatter plot with facets for each fuel type
+comparison_scatter_plot <- comparison_tbl |>
+  ggplot(aes(
+    x = pct_domestic_properties_ons,
+    y = pct_domestic_properties_epc_llm
+  )) +
   labs(
-    title = "Difference in domestic fuel type proportions",
-    subtitle = "Comparison of EPC data and ONS LA level data",
-    caption = "Source: ONS (2023) and MCA analysis of EPC data to March 2024",
-    x = "Fuel type",
-    y = "EPC - ONS percentage points"
+    x = "ONS category percentage",
+    y = "predicted\npercentage\nfrom\nEPC LLM",
+    title = "Comparison of domestic fuel type proportions",
+    subtitle = "Predicted EPC fuel type category vs ONS LA level data for combined authorities",
+    caption = "Source: ONS and MCA analysis of EPC data to March 2024"
   ) +
+  geom_point() +
+  facet_wrap(~fuel_type, scales = "free") +
   theme_minimal() +
-  coord_flip() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    axis.title.y = element_text(size = 10, angle = 0),
+    axis.title.x = element_text(size = 12)
   )
+
+comparison_scatter_plot
