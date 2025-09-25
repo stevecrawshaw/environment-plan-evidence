@@ -1,4 +1,5 @@
 cp ~/weca_postgres.duckdb_secret ~/.duckdb/stored_secrets
+
 duckdb
 LOAD SPATIAL;
 
@@ -133,17 +134,6 @@ DESCRIBE energy_source_lep_summary_tbl;
 FROM energy_source_lep_summary_tbl;
 
 COPY energy_source_lep_summary_tbl TO 'data/energy_source_lep_summary_tbl.csv';
-
-
-
-
-
-
-
-
-
-
-
 
 CREATE OR REPLACE TABLE repd_tbl AS 
 FROM read_csv('data/repd-q1-apr-2025.csv',

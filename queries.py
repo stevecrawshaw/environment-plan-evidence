@@ -102,4 +102,65 @@ TABLE_CREATION_QUERIES = [
             FROM read_csv('data/carbon_intensity_categories.csv');
         """,
     },
+    {
+        "name": "veh0135_latest_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE veh0135_latest_tbl AS
+            SELECT LSOA11CD, LSOA11NM, Fuel, "{time_period}"::INTEGER AS "{time_period}"
+            FROM read_csv('data/df_VEH0135.csv', strict_mode=false, normalize_names=true)
+            WHERE "{time_period}"[0:1] != '['
+            AND fuel != 'Total'
+            AND LSOA11CD[0:1] = 'E';
+        """,
+    },
+    {
+        "name": "veh0145_latest_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE veh0145_latest_tbl AS
+            SELECT LSOA11CD, LSOA11NM, Fuel, "{time_period}"::INTEGER AS "{time_period}" 
+            FROM read_csv('data/df_VEH0145.csv', strict_mode=false, normalize_names=true)
+            WHERE "{time_period}"[0:1] != '['
+            AND fuel != 'Total'
+            AND LSOA11CD[0:1] = 'E';
+        """,
+    },
+    {
+        "name": "veh0125_latest_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE veh0125_latest_tbl AS
+            SELECT LSOA11CD, LSOA11NM, BodyType, Keepership, LicenceStatus, "{time_period}"::INTEGER AS "{time_period}"
+            FROM read_csv('data/df_VEH0125.csv', strict_mode=false, normalize_names=true)
+            WHERE "{time_period}"[0:1] != '[' 
+            AND bodytype != 'Total'
+            AND keepership != 'Total'
+            AND licencestatus != 'Total'
+            AND LSOA11CD[0:1] = 'E';
+        """,
+    },
+    {
+        "name": "vehicle_mileage_la_tbl",
+        "sql": """
+            CREATE OR REPLACE TABLE vehicle_mileage_la_tbl AS
+            SELECT * REPLACE(year[2:5]::INTEGER AS year,
+            if(mileage_millions[1] = '[',
+            NULL,
+            mileage_millions::DOUBLE) AS mileage_millions)
+            FROM
+            (UNPIVOT
+            (SELECT * EXCLUDE(notes, units, _)
+            FROM read_xlsx('data/tra8901-miles-by-local-authority.xlsx',
+                            sheet='TRA8901',
+                            range='A5:AM240',
+                            normalize_names=true,
+                            all_varchar=true,
+                            header=true
+                            ) 
+            WHERE local_authority_or_region_code[0:2] = 'E0')
+            ON COLUMNS('\\d$')
+            INTO
+            NAME "year"
+            VALUE mileage_millions
+            );
+        """,
+    },
 ]

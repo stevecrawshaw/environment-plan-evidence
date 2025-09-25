@@ -11,17 +11,21 @@ from utils import check_source_data, concat_sheets
 # --- Configuration ---
 DB_FILE = "data/regional_energy.duckdb"
 EXTERNAL_DB_PATH = "../mca-data/data/ca_epc.duckdb"
+VEHICLE_DATA_TIME_PERIOD = "_2025_q1"  # Current time period for vehicle data
 
 REQUIRED_FILES = [
     "data/repd-q2-jul-2025.csv",
     "data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx",
+    "data/df_VEH0125.csv",
     "data/df_VEH0135.csv",
+    "data/df_VEH0145.csv",
     "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx",
     "data/Sub-regional_fuel_poverty_statistics_2023.xlsx",
     "data/LSOA11_UTLA21_EW_LU.xlsx",
     "data/all_renewables_tbl.csv",
     "data/regional_carbon_intensity.csv",
     "data/carbon_intensity_categories.csv",
+    "data/tra8901-miles-by-local-authority.xlsx",
     EXTERNAL_DB_PATH,
 ]
 
@@ -54,9 +58,21 @@ def main():
         print("✅ Loaded HTTPFS and SPATIAL extensions.")
 
         # 3. Execute all standard "CREATE TABLE" queries
+        vehicle_table_names = {
+            "veh0135_latest_tbl",
+            "veh0145_latest_tbl",
+            "veh0125_latest_tbl",
+        }
+
         for query_info in TABLE_CREATION_QUERIES:
             table_name = query_info["name"]
-            con.sql(query_info["sql"])
+            sql_query = query_info["sql"]
+
+            # Handle parameterized vehicle queries
+            if table_name in vehicle_table_names:
+                sql_query = sql_query.format(time_period=VEHICLE_DATA_TIME_PERIOD)
+
+            con.sql(sql_query)
             print(f"  - Successfully executed query for table: {table_name}")
 
         # 4. Handle special table creations
