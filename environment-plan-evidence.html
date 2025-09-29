@@ -89,6 +89,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
   <li><a href="#data-sources" id="toc-data-sources" class="nav-link" data-scroll-target="#data-sources"><span class="header-section-number">2</span> Data Sources</a></li>
+  <li><a href="#emissions-by-local-authority" id="toc-emissions-by-local-authority" class="nav-link" data-scroll-target="#emissions-by-local-authority"><span class="header-section-number">3</span> Emissions by Local Authority</a></li>
+  <li><a href="#energy-consumption-and-fuel-types" id="toc-energy-consumption-and-fuel-types" class="nav-link" data-scroll-target="#energy-consumption-and-fuel-types"><span class="header-section-number">4</span> Energy Consumption and Fuel Types</a></li>
+  <li><a href="#energy-consumption-by-fuel-type" id="toc-energy-consumption-by-fuel-type" class="nav-link" data-scroll-target="#energy-consumption-by-fuel-type"><span class="header-section-number">5</span> Energy Consumption by Fuel Type</a></li>
+  <li><a href="#home-heating-fuel-types" id="toc-home-heating-fuel-types" class="nav-link" data-scroll-target="#home-heating-fuel-types"><span class="header-section-number">6</span> Home Heating: Fuel Types</a></li>
+  <li><a href="#energy-consumption-over-time-by-local-authority" id="toc-energy-consumption-over-time-by-local-authority" class="nav-link" data-scroll-target="#energy-consumption-over-time-by-local-authority"><span class="header-section-number">7</span> Energy Consumption Over Time by Local Authority</a></li>
+  <li><a href="#emissions-over-time-by-local-authority" id="toc-emissions-over-time-by-local-authority" class="nav-link" data-scroll-target="#emissions-over-time-by-local-authority"><span class="header-section-number">8</span> Emissions Over Time by Local Authority</a></li>
   </ul>
 </nav>
 </div>
@@ -149,6 +155,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras, treemapify, openair, emojifont, ggtext, patchwork, showtext)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># get named vector of colours from WECA brand guidelines</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>weca_core_colours <span class="ot">&lt;-</span> jsonlite<span class="sc">::</span><span class="fu">read_json</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"https://raw.githubusercontent.com/westofengland-ca/weca_templates/refs/heads/main/General_branding/brand_guidelines.json"</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pluck</span>(<span class="dv">3</span>, <span class="st">"colors"</span>, <span class="st">"primary_colors"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map</span>(<span class="st">"hex"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unlist</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 <section id="introduction" class="level2" data-number="1">
 <h2 data-number="1" class="anchored" data-anchor-id="introduction"><span class="header-section-number">1</span> Introduction</h2>
 <p>This document brings together data and analysis to support the West of England Combined Authority’s 2025 Environment Plan. It includes information on regional emissions, energy efficiency, and carbon reduction initiatives.</p>
@@ -156,11 +180,1554 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="data-sources" class="level2" data-number="2">
 <h2 data-number="2" class="anchored" data-anchor-id="data-sources"><span class="header-section-number">2</span> Data Sources</h2>
 <p>The primary data sources used in this analysis include: <br> - <a href="https://www.gov.uk/government/statistics/total-final-energy-consumption-at-regional-and-local-authority-level-2005-to-2023">Sub - national total final energy consumption (DESNZ)</a> <br> - <a href="https://www.gov.uk/government/statistics/uk-local-authority-and-regional-greenhouse-gas-emissions-statistics-2005-to-2023">UK local authority and regional carbon dioxide emissions national statistics (DESNZ)</a></p>
+<p>North Somerset council is included in the West of England data throughout this document. The intention is for North Somerset to join the Mayoral Combined Authority in due course.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>energy_data_all_la_tbl <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">"data/clean_energy_la_long_tbl.parquet"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co"> - incorporate energy in the duckdb database</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>energy_data_all_la_tbl <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">"data/clean_energy_la_long_tbl.parquet"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># motherduck extension not available in windows!</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>con_epc <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(duckdb<span class="sc">::</span><span class="fu">duckdb</span>(<span class="st">"../mca-data/data/ca_epc.duckdb"</span>))</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>con_epc <span class="sc">|&gt;</span> <span class="fu">dbExecute</span>(<span class="st">"LOAD spatial"</span>) <span class="sc">|&gt;</span> <span class="fu">invisible</span>()</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>ca_la_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ca_la_tbl"</span>) </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>ghg_emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ghg_emissions_tbl"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM emissions_tbl"</span>) </span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>epc_domestic_lep_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_domestic_lep_vw"</span>) </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>epc_non_domestic_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_non_domestic_vw"</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>weca_ns_la_names <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> <span class="fu">pull</span>(ladnm)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>weca_ns_la_codes <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> <span class="fu">pull</span>(ladcd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>con_env <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(duckdb<span class="sc">::</span><span class="fu">duckdb</span>(<span class="st">"data/regional_energy.duckdb"</span>))</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>con_env <span class="sc">|&gt;</span> <span class="fu">dbExecute</span>(<span class="st">"LOAD SPATIAL"</span>) <span class="sc">|&gt;</span> <span class="fu">invisible</span>()</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>electricity_la_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_env, <span class="st">"FROM electricity_la_tbl"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>max_year <span class="ot">&lt;-</span> <span class="fu">max</span>(energy_data_all_la_tbl<span class="sc">$</span>year)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">as.Date</span>(<span class="fu">max</span>(epc_domestic_lep_tbl<span class="sc">$</span>LODGEMENT_DATE)) <span class="sc">&lt;</span> <span class="fu">Sys.Date</span>()){</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  latest_epc_date <span class="ot">&lt;-</span>  <span class="fu">as.Date</span>(<span class="fu">max</span>(epc_domestic_lep_tbl<span class="sc">$</span>LODGEMENT_DATE))</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>latest_epc_date <span class="ot">&lt;-</span> <span class="fu">rollbackward</span>(<span class="fu">Sys.Date</span>())</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>epc_date <span class="ot">&lt;-</span> <span class="fu">strftime</span>(latest_epc_date, <span class="at">format =</span> <span class="st">"%B %Y"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="emissions-by-local-authority" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="emissions-by-local-authority"><span class="header-section-number">3</span> Emissions by Local Authority</h2>
+<p>The treemap below shows the total territorial emissions in Kilotonnes of CO2 equivalent (KtCO2e) for each local authority in the West of England for the most recent year available, which is 2023.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>weca_cols <span class="ot">&lt;-</span> weca_core_colours[<span class="dv">2</span><span class="sc">:</span><span class="dv">5</span>] <span class="sc">|&gt;</span> </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unname</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_names</span>(weca_ns_la_names)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>(<span class="at">enable =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>emissions_treemap_plot <span class="ot">&lt;-</span> emissions_data_weca_max_year_tbl <span class="sc">|&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">area =</span> total_emissions,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> local_authority,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> <span class="fu">glue</span>(<span class="st">"{round(total_emissions, 0)}</span><span class="sc">\n</span><span class="st">{local_authority}"</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">+</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_treemap</span>() <span class="sc">+</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_treemap_text</span>(</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">colour =</span> <span class="st">"white"</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">place =</span> <span class="st">"topleft"</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">min.size =</span> <span class="dv">4</span>,</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">grow =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">reflow =</span> <span class="cn">TRUE</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_cols) <span class="sc">+</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">glue</span>(<span class="st">"Total territorial emissions by local authority {max_year} (KtCO2e)"</span>) <span class="sc">|&gt;</span> <span class="fu">quickText</span>(),</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: UK local authority and regional greenhouse gas emissions statistics"</span>,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>,</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">20</span>, <span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>emissions_treemap_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="environment-plan-evidence_files/figure-html/treemap-plot-emissions-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="energy-consumption-and-fuel-types" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="energy-consumption-and-fuel-types"><span class="header-section-number">4</span> Energy Consumption and Fuel Types</h2>
+<p>Transport uses the largest share of energy in the West of England, closely followed by domestic and then industry, commercial and other users. The data below is for all energy consumption in the West of England in 2023. Almost all transport energy use is from petroleum products.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>energy_data_weca_max_year_all_fuels_tbl <span class="ot">&lt;-</span> energy_data_all_la_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(ladcd <span class="sc">%in%</span> weca_ns_la_codes,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  fuel <span class="sc">==</span> <span class="st">"All fuels"</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  year <span class="sc">==</span> max_year,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  sector <span class="sc">!=</span> <span class="st">"Total"</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">group_by</span>(sector) <span class="sc">|&gt;</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summarise</span>(<span class="at">energy_GTOe =</span> <span class="fu">sum</span>(value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mutate</span>(<span class="at">pct_sector =</span> (energy_GTOe <span class="sc">/</span> <span class="fu">sum</span>(energy_GTOe))) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># fontAwesome icons for gt table</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>fa_tbl <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Domestic"</span> <span class="ot">=</span> <span class="st">"house"</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Industrial commercial and other"</span> <span class="ot">=</span> <span class="st">"industry"</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Transport"</span> <span class="ot">=</span> <span class="st">"car-side"</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">enframe</span>(<span class="at">name =</span> <span class="st">"sector"</span>, <span class="at">value =</span> <span class="st">"fa_icon"</span>) </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>gt_source_tbl <span class="ot">&lt;-</span> energy_data_weca_max_year_all_fuels_tbl <span class="sc">|&gt;</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(fa_tbl, <span class="at">by =</span> <span class="fu">join_by</span>(<span class="st">"sector"</span> <span class="sc">==</span> <span class="st">"sector"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(pct_sector)) </span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>sector_gt <span class="ot">&lt;-</span> gt_source_tbl <span class="sc">|&gt;</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(fa_icon, sector, pct_sector) <span class="sc">|&gt;</span> </span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_icon</span>(</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    fa_icon</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt_plt_bar</span>(</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    pct_sector,</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">scale_type =</span> <span class="st">"percent"</span>,</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> weca_core_colours[<span class="dv">1</span>],</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">width =</span> <span class="dv">70</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">fa_icon =</span> <span class="st">""</span>,</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">sector =</span> <span class="st">"Sector"</span>,</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_sector =</span> <span class="fu">glue</span>(<span class="st">"Contribution {max_year}"</span>)</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_move_to_end</span>(pct_sector)</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>sector_gt</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div id="xgbbychcez" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#xgbbychcez table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#xgbbychcez thead, #xgbbychcez tbody, #xgbbychcez tfoot, #xgbbychcez tr, #xgbbychcez td, #xgbbychcez th {
+  border-style: none;
+}
+
+#xgbbychcez p {
+  margin: 0;
+  padding: 0;
+}
+
+#xgbbychcez .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#xgbbychcez .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#xgbbychcez .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#xgbbychcez .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#xgbbychcez .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#xgbbychcez .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#xgbbychcez .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#xgbbychcez .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#xgbbychcez .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#xgbbychcez .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#xgbbychcez .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#xgbbychcez .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#xgbbychcez .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#xgbbychcez .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#xgbbychcez .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xgbbychcez .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#xgbbychcez .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#xgbbychcez .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#xgbbychcez .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xgbbychcez .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#xgbbychcez .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xgbbychcez .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#xgbbychcez .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xgbbychcez .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#xgbbychcez .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xgbbychcez .gt_left {
+  text-align: left;
+}
+
+#xgbbychcez .gt_center {
+  text-align: center;
+}
+
+#xgbbychcez .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#xgbbychcez .gt_font_normal {
+  font-weight: normal;
+}
+
+#xgbbychcez .gt_font_bold {
+  font-weight: bold;
+}
+
+#xgbbychcez .gt_font_italic {
+  font-style: italic;
+}
+
+#xgbbychcez .gt_super {
+  font-size: 65%;
+}
+
+#xgbbychcez .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#xgbbychcez .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#xgbbychcez .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#xgbbychcez .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#xgbbychcez .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#xgbbychcez .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#xgbbychcez .gt_indent_5 {
+  text-indent: 25px;
+}
+
+#xgbbychcez .katex-display {
+  display: inline-flex !important;
+  margin-bottom: 0.75em !important;
+}
+
+#xgbbychcez div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+  height: 0px !important;
+}
+</style>
+
+<table class="gt_table caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="gt_col_headings header">
+<th id="fa_icon" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"></th>
+<th id="sector" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Sector</th>
+<th id="pct_sector" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Contribution 2023</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Car Side" role="img" viewbox="0 0 640 512" style="height:1em;width:1.25em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Car Side
+</title>
+<path d="M171.3 96H224v96H111.3l30.4-75.9C146.5 104 158.2 96 171.3 96zM272 192V96h81.2c9.7 0 18.9 4.4 25 12l67.2 84H272zm256.2 1L428.2 68c-18.2-22.8-45.8-36-75-36H171.3c-39.3 0-74.6 23.9-89.1 60.3L40.6 196.4C16.8 205.8 0 228.9 0 256V368c0 17.7 14.3 32 32 32H65.3c7.6 45.4 47.1 80 94.7 80s87.1-34.6 94.7-80H385.3c7.6 45.4 47.1 80 94.7 80s87.1-34.6 94.7-80H608c17.7 0 32-14.3 32-32V320c0-65.2-48.8-119-111.8-127zM434.7 368a48 48 0 1 1 90.5 32 48 48 0 1 1 -90.5-32zM160 336a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="sector">Transport</td>
+<td class="gt_row gt_left" headers="pct_sector"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="172.15" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><text x="177.52" y="10.14" text-anchor="end" style="font-size: 8.54px; font-weight: bold;fill: #FFFFFF; font-family: &quot;Arial&quot;;" textlength="17.08px" lengthadjust="spacingAndGlyphs">41%</text></g></g>
+</svg></td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="House" role="img" viewbox="0 0 576 512" style="height:1em;width:1.12em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+House
+</title>
+<path d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40H456c-1.1 0-2.2 0-3.3-.1c-1.4 .1-2.8 .1-4.2 .1H416 392c-22.1 0-40-17.9-40-40V448 384c0-17.7-14.3-32-32-32H256c-17.7 0-32 14.3-32 32v64 24c0 22.1-17.9 40-40 40H160 128.1c-1.5 0-3-.1-4.5-.2c-1.2 .1-2.4 .2-3.6 .2H104c-22.1 0-40-17.9-40-40V360c0-.9 0-1.9 .1-2.8V287.6H32c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="sector">Domestic</td>
+<td class="gt_row gt_left" headers="pct_sector"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="133.82" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><text x="139.19" y="10.14" text-anchor="end" style="font-size: 8.54px; font-weight: bold;fill: #FFFFFF; font-family: &quot;Arial&quot;;" textlength="17.08px" lengthadjust="spacingAndGlyphs">32%</text></g></g>
+</svg></td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Industry" role="img" viewbox="0 0 576 512" style="height:1em;width:1.12em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Industry
+</title>
+<path d="M64 32C46.3 32 32 46.3 32 64V304v48 80c0 26.5 21.5 48 48 48H496c26.5 0 48-21.5 48-48V304 152.2c0-18.2-19.4-29.7-35.4-21.1L352 215.4V152.2c0-18.2-19.4-29.7-35.4-21.1L160 215.4V64c0-17.7-14.3-32-32-32H64z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="sector">Industrial commercial and other</td>
+<td class="gt_row gt_left" headers="pct_sector"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="117.29" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><text x="122.65" y="10.14" text-anchor="end" style="font-size: 8.54px; font-weight: bold;fill: #FFFFFF; font-family: &quot;Arial&quot;;" textlength="17.08px" lengthadjust="spacingAndGlyphs">28%</text></g></g>
+</svg></td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>A pie chart representation of the energy consumption by end user sector is shown below.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># alternative representation using a pie chart with icons</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">font_add</span>(</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"fontawesome"</span>, </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">regular =</span> <span class="st">"font-awesome-4.7.0/fonts/fontawesome-webfont.ttf"</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Enable showtext to automatically render text in plots</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the data frame</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co"># --- THE ONLY CHANGE IS THE LAST ICON CODE ---</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>pie_data_tbl <span class="ot">&lt;-</span> energy_data_weca_max_year_all_fuels_tbl <span class="sc">|&gt;</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(sector, pct_sector) <span class="sc">|&gt;</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">value =</span> <span class="fu">round</span>(pct_sector <span class="sc">*</span> <span class="dv">100</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">icon =</span> <span class="fu">c</span>(<span class="st">"\uf015"</span>, <span class="st">"\uf275"</span>, <span class="st">"\uf1b9"</span>)) <span class="co"># Home, Industry, Car)</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate positions for labels and icons</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>pie_data_clean_tbl <span class="ot">&lt;-</span> pie_data_tbl <span class="sc">%&gt;%</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arrange data to match the visual layout (clockwise from the top)</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(sector, <span class="fu">c</span>(<span class="st">"Industry commercial and other"</span>, <span class="st">"Transport"</span>, <span class="st">"Domestic"</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">y_pos =</span> <span class="fu">cumsum</span>(value) <span class="sc">-</span> <span class="fl">0.5</span> <span class="sc">*</span> value,</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">label_text =</span> <span class="fu">paste0</span>(value, <span class="st">"%"</span>)</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Define colors to match the image</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>bg_color <span class="ot">&lt;-</span> <span class="st">"#1A2A3A"</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>line_color <span class="ot">&lt;-</span> <span class="st">"#A8B820"</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the pie chart plot</span></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>pie_chart <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pie_data_clean_tbl, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create the pie slices. We use a dark fill to match the background</span></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>  <span class="co"># and a colored border to create the "ring" effect.</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> <span class="fl">1.8</span>, <span class="at">color =</span> line_color, <span class="at">fill =</span> bg_color, <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add the percentage labels outside the circle</span></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fl">3.1</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> label_text),</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>            <span class="at">color =</span> line_color,</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>            <span class="at">fontface =</span> <span class="st">"bold"</span>,</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>            <span class="at">size =</span> <span class="dv">14</span>) <span class="sc">+</span></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add the icons using geom_text with the Font Awesome family</span></span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> icon),</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>            <span class="at">family =</span> <span class="st">"fontawesome"</span>, <span class="co"># Use Font Awesome font</span></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>            <span class="at">size =</span> <span class="dv">15</span>,</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>            <span class="at">color =</span> line_color) <span class="sc">+</span></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Convert the bar chart to a pie chart</span></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_polar</span>(<span class="at">theta =</span> <span class="st">"y"</span>, <span class="at">start =</span> pi<span class="sc">/</span><span class="dv">2</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Set limits to create space around the pie</span></span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">3.2</span>)) <span class="sc">+</span></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Use a minimal theme and set the background color</span></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>),</span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>)</span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the text content with HTML for styling</span></span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>text_content <span class="ot">&lt;-</span> <span class="st">"</span></span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;span style='font-size:24pt; color:white; font-weight:bold;'&gt;Energy Use&lt;/span&gt;&lt;br&gt;&lt;br&gt;</span></span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;span style='font-size:18pt; color:white;'&gt;by End User&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;</span></span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;span style='font-size:14pt; color:white;'&gt;Energy consumption&lt;br&gt; is split evenly&lt;br&gt;between: &lt;/span&gt;&lt;br&gt;&lt;br&gt;</span></span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;b style='font-size:22pt; color:#A8B820;'&gt;29%&lt;/b&gt; &lt;span style='font-size:14pt; color:white;'&gt; Transport&lt;/span&gt;&lt;br&gt;</span></span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;b style='font-size:22pt; color:#A8B820;'&gt;39%&lt;/b&gt; &lt;span style='font-size:14pt; color:white;'&gt; Domestic&lt;/span&gt;&lt;br&gt;</span></span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;b style='font-size:22pt; color:#A8B820;'&gt;32%&lt;/b&gt; &lt;span style='font-size:14pt; color:white;'&gt; Industry &amp; Commercial&lt;/span&gt;"</span></span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the text panel plot</span></span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a>text_panel <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(</span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>    <span class="st">"richtext"</span>, <span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="fl">0.5</span>,</span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> text_content,</span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="fl">0.5</span>, <span class="co"># Align text to the left and center vertically</span></span>
+<span id="cb10-75"><a href="#cb10-75" aria-hidden="true" tabindex="-1"></a>    <span class="at">label.color =</span> <span class="cn">NA</span>, <span class="at">fill =</span> <span class="cn">NA</span> <span class="co"># No box around the text</span></span>
+<span id="cb10-76"><a href="#cb10-76" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>))</span>
+<span id="cb10-79"><a href="#cb10-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-80"><a href="#cb10-80" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine the two plots side-by-side</span></span>
+<span id="cb10-81"><a href="#cb10-81" aria-hidden="true" tabindex="-1"></a>final_plot <span class="ot">&lt;-</span> text_panel <span class="sc">+</span> pie_chart <span class="sc">+</span></span>
+<span id="cb10-82"><a href="#cb10-82" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">widths =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">1.2</span>)) <span class="co"># Give the pie chart slightly more space</span></span>
+<span id="cb10-83"><a href="#cb10-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-84"><a href="#cb10-84" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the final plot</span></span>
+<span id="cb10-85"><a href="#cb10-85" aria-hidden="true" tabindex="-1"></a>pie_chart</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="environment-plan-evidence_files/figure-html/energy-sector-pie-chart-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="energy-consumption-by-fuel-type" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="energy-consumption-by-fuel-type"><span class="header-section-number">5</span> Energy Consumption by Fuel Type</h2>
+<p>Most energy consumed in the West of England is from petroleum products. The data below is for all energy consumption in the West of England in 2023.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>not_other <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Electricity"</span>,</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Gas"</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Petroleum"</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>energy_data_weca_max_year_all_sectors_tbl <span class="ot">&lt;-</span> energy_data_all_la_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(ladcd <span class="sc">%in%</span> weca_ns_la_codes,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  sector <span class="sc">==</span> <span class="st">"Total"</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  year <span class="sc">==</span> max_year,</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  fuel <span class="sc">!=</span> <span class="st">"All fuels"</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(fuel, value) <span class="sc">|&gt;</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">fuel_type =</span> <span class="fu">if_else</span>(fuel <span class="sc">%in%</span> not_other, fuel, <span class="st">"Other"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(fuel_type) <span class="sc">|&gt;</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">energy_GTOe =</span> <span class="fu">sum</span>(value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct_fuel =</span> (energy_GTOe <span class="sc">/</span> <span class="fu">sum</span>(energy_GTOe))) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fa_fuel_tbl <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Electricity"</span> <span class="ot">=</span> <span class="st">"bolt-lightning"</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Gas"</span> <span class="ot">=</span> <span class="st">"fire-flame-simple"</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Other"</span> <span class="ot">=</span> <span class="st">"leaf"</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Petroleum"</span> <span class="ot">=</span> <span class="st">"oil-well"</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">enframe</span>(<span class="at">name =</span> <span class="st">"fuel_type"</span>, <span class="at">value =</span> <span class="st">"fa_icon"</span>) </span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>gt_fuel_tbl <span class="ot">&lt;-</span>  energy_data_weca_max_year_all_sectors_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(fa_fuel_tbl, <span class="at">by =</span> <span class="fu">join_by</span>(<span class="st">"fuel_type"</span> <span class="sc">==</span> <span class="st">"fuel_type"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(pct_fuel)) </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>fuel_gt <span class="ot">&lt;-</span> gt_fuel_tbl <span class="sc">|&gt;</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(fa_icon, fuel_type, pct_fuel) <span class="sc">%&gt;%</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_icon</span>(</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    fa_icon</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt_plt_bar</span>(</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    pct_fuel,</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">scale_type =</span> <span class="st">"percent"</span>,</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> weca_core_colours[<span class="dv">1</span>],</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">width =</span> <span class="dv">70</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">fa_icon =</span> <span class="st">""</span>,</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">fuel_type =</span> <span class="st">"Fuel"</span>,</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_fuel =</span> <span class="fu">glue</span>(<span class="st">"Contribution {max_year}"</span>)</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_move_to_end</span>(pct_fuel)</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>fuel_gt</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div id="bkdhhxuzef" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#bkdhhxuzef table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#bkdhhxuzef thead, #bkdhhxuzef tbody, #bkdhhxuzef tfoot, #bkdhhxuzef tr, #bkdhhxuzef td, #bkdhhxuzef th {
+  border-style: none;
+}
+
+#bkdhhxuzef p {
+  margin: 0;
+  padding: 0;
+}
+
+#bkdhhxuzef .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#bkdhhxuzef .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#bkdhhxuzef .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#bkdhhxuzef .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#bkdhhxuzef .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#bkdhhxuzef .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#bkdhhxuzef .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#bkdhhxuzef .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#bkdhhxuzef .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#bkdhhxuzef .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#bkdhhxuzef .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#bkdhhxuzef .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#bkdhhxuzef .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#bkdhhxuzef .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#bkdhhxuzef .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#bkdhhxuzef .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#bkdhhxuzef .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#bkdhhxuzef .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#bkdhhxuzef .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#bkdhhxuzef .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#bkdhhxuzef .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#bkdhhxuzef .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#bkdhhxuzef .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#bkdhhxuzef .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#bkdhhxuzef .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#bkdhhxuzef .gt_left {
+  text-align: left;
+}
+
+#bkdhhxuzef .gt_center {
+  text-align: center;
+}
+
+#bkdhhxuzef .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#bkdhhxuzef .gt_font_normal {
+  font-weight: normal;
+}
+
+#bkdhhxuzef .gt_font_bold {
+  font-weight: bold;
+}
+
+#bkdhhxuzef .gt_font_italic {
+  font-style: italic;
+}
+
+#bkdhhxuzef .gt_super {
+  font-size: 65%;
+}
+
+#bkdhhxuzef .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#bkdhhxuzef .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#bkdhhxuzef .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#bkdhhxuzef .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#bkdhhxuzef .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#bkdhhxuzef .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#bkdhhxuzef .gt_indent_5 {
+  text-indent: 25px;
+}
+
+#bkdhhxuzef .katex-display {
+  display: inline-flex !important;
+  margin-bottom: 0.75em !important;
+}
+
+#bkdhhxuzef div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+  height: 0px !important;
+}
+</style>
+
+<table class="gt_table caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="gt_col_headings header">
+<th id="fa_icon" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"></th>
+<th id="fuel_type" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Fuel</th>
+<th id="pct_fuel" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Contribution 2023</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Oil Well" role="img" viewbox="0 0 576 512" style="height:1em;width:1.12em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Oil Well
+</title>
+<path d="M528.3 61.3c-11.4-42.7-55.3-68-98-56.6L414.9 8.8C397.8 13.4 387.7 31 392.3 48l24.5 91.4L308.5 167.5l-6.3-18.1C297.7 136.6 285.6 128 272 128s-25.7 8.6-30.2 21.4l-13.6 39L96 222.6V184c0-13.3-10.7-24-24-24s-24 10.7-24 24V448H32c-17.7 0-32 14.3-32 32s14.3 32 32 32H544c17.7 0 32-14.3 32-32s-14.3-32-32-32H406.7L340 257.5l-62.2 16.1L305.3 352H238.7L265 277l-74.6 19.3L137.3 448H96V288.8l337.4-87.5 25.2 94c4.6 17.1 22.1 27.2 39.2 22.6l15.5-4.1c42.7-11.4 68-55.3 56.6-98L528.3 61.3zM205.1 448l11.2-32H327.7l11.2 32H205.1z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="fuel_type">Petroleum</td>
+<td class="gt_row gt_left" headers="pct_fuel"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="172.15" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><path d="M 164.35 8.83 L 164.35 10.02 L 163.23 10.02 L 163.23 8.83 L 160.56 8.83 L 160.56 7.95 L 163.04 4.15 L 164.35 4.15 L 164.35 7.96 L 165.13 7.96 L 165.13 8.83 L 164.35 8.83 ZM 163.23 6.03 L 163.23 6.03 L 163.23 6.02 L 163.23 6.00 L 163.23 5.99 L 163.23 5.97 L 163.23 5.95 L 163.23 5.93 L 163.23 5.91 L 163.23 5.89 L 163.23 5.87 L 163.23 5.85 L 163.23 5.85 L 163.23 5.83 L 163.24 5.80 L 163.24 5.78 L 163.24 5.76 L 163.24 5.73 L 163.24 5.71 L 163.24 5.69 L 163.24 5.66 L 163.24 5.64 L 163.24 5.61 L 163.24 5.61 L 163.24 5.59 L 163.25 5.57 L 163.25 5.54 L 163.25 5.52 L 163.25 5.50 L 163.25 5.47 L 163.25 5.45 L 163.25 5.43 L 163.25 5.41 L 163.25 5.38 L 163.25 5.38 L 163.26 5.36 L 163.26 5.34 L 163.26 5.32 L 163.26 5.30 L 163.26 5.28 L 163.26 5.27 L 163.27 5.25 L 163.27 5.24 L 163.27 5.22 L 163.27 5.21 L 163.27 5.21 L 163.27 5.22 L 163.26 5.23 L 163.26 5.24 L 163.25 5.25 L 163.24 5.27 L 163.24 5.28 L 163.23 5.29 L 163.22 5.31 L 163.21 5.33 L 163.20 5.34 L 163.20 5.34 L 163.20 5.36 L 163.19 5.38 L 163.18 5.39 L 163.17 5.41 L 163.16 5.43 L 163.15 5.45 L 163.13 5.47 L 163.12 5.49 L 163.11 5.51 L 163.10 5.53 L 163.10 5.53 L 163.09 5.54 L 163.08 5.56 L 163.07 5.58 L 163.06 5.60 L 163.04 5.62 L 163.03 5.64 L 163.02 5.66 L 163.01 5.68 L 163.00 5.70 L 162.98 5.72 L 162.98 5.72 L 162.97 5.74 L 162.96 5.75 L 162.95 5.77 L 162.94 5.79 L 162.93 5.81 L 162.92 5.82 L 162.91 5.84 L 162.90 5.85 L 162.89 5.87 L 162.88 5.88 L 161.52 7.96 L 163.23 7.96 L 163.23 6.03 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 169.62 8.39 L 169.62 8.39 L 169.62 8.47 L 169.61 8.55 L 169.61 8.63 L 169.60 8.70 L 169.59 8.77 L 169.57 8.84 L 169.55 8.91 L 169.53 8.98 L 169.51 9.05 L 169.49 9.11 L 169.49 9.11 L 169.46 9.18 L 169.43 9.24 L 169.40 9.30 L 169.36 9.35 L 169.32 9.41 L 169.28 9.46 L 169.24 9.51 L 169.19 9.56 L 169.15 9.61 L 169.09 9.66 L 169.09 9.66 L 169.04 9.70 L 168.98 9.74 L 168.93 9.78 L 168.86 9.82 L 168.80 9.86 L 168.73 9.89 L 168.66 9.92 L 168.59 9.95 L 168.52 9.98 L 168.44 10.00 L 168.44 10.00 L 168.36 10.02 L 168.28 10.04 L 168.20 10.06 L 168.11 10.08 L 168.02 10.09 L 167.93 10.10 L 167.83 10.11 L 167.74 10.11 L 167.64 10.12 L 167.54 10.12 L 167.54 10.12 L 167.42 10.12 L 167.31 10.11 L 167.21 10.11 L 167.10 10.10 L 167.01 10.08 L 166.91 10.07 L 166.82 10.05 L 166.73 10.03 L 166.65 10.00 L 166.56 9.97 L 166.56 9.97 L 166.49 9.94 L 166.41 9.91 L 166.34 9.88 L 166.27 9.84 L 166.21 9.80 L 166.14 9.76 L 166.08 9.72 L 166.03 9.68 L 165.97 9.64 L 165.92 9.59 L 165.92 9.59 L 165.87 9.54 L 165.82 9.49 L 165.78 9.44 L 165.74 9.39 L 165.70 9.33 L 165.66 9.28 L 165.63 9.22 L 165.60 9.16 L 165.57 9.10 L 165.54 9.04 L 165.54 9.04 L 165.51 8.98 L 165.49 8.92 L 165.47 8.86 L 165.45 8.80 L 165.44 8.74 L 165.42 8.68 L 165.41 8.61 L 165.39 8.55 L 165.38 8.49 L 165.38 8.43 L 166.57 8.32 L 166.57 8.32 L 166.57 8.36 L 166.58 8.40 L 166.59 8.43 L 166.60 8.47 L 166.60 8.50 L 166.61 8.54 L 166.62 8.57 L 166.64 8.60 L 166.65 8.64 L 166.66 8.67 L 166.66 8.67 L 166.67 8.70 L 166.69 8.73 L 166.71 8.76 L 166.72 8.79 L 166.74 8.81 L 166.76 8.84 L 166.78 8.86 L 166.80 8.89 L 166.82 8.91 L 166.85 8.94 L 166.85 8.94 L 166.87 8.96 L 166.90 8.98 L 166.92 9.00 L 166.95 9.02 L 166.98 9.04 L 167.01 9.05 L 167.04 9.07 L 167.07 9.08 L 167.10 9.10 L 167.13 9.11 L 167.13 9.11 L 167.17 9.12 L 167.20 9.13 L 167.24 9.14 L 167.28 9.15 L 167.32 9.15 L 167.36 9.16 L 167.40 9.16 L 167.44 9.17 L 167.49 9.17 L 167.53 9.17 L 167.53 9.17 L 167.61 9.17 L 167.69 9.16 L 167.77 9.15 L 167.84 9.14 L 167.91 9.12 L 167.97 9.09 L 168.03 9.07 L 168.08 9.04 L 168.14 9.00 L 168.19 8.96 L 168.19 8.96 L 168.23 8.92 L 168.27 8.87 L 168.30 8.82 L 168.33 8.76 L 168.36 8.70 L 168.38 8.63 L 168.40 8.56 L 168.41 8.49 L 168.42 8.41 L 168.42 8.32 L 168.42 8.32 L 168.42 8.27 L 168.41 8.22 L 168.41 8.17 L 168.40 8.13 L 168.39 8.09 L 168.38 8.04 L 168.36 8.01 L 168.35 7.97 L 168.33 7.93 L 168.31 7.90 L 168.31 7.90 L 168.28 7.87 L 168.26 7.84 L 168.24 7.81 L 168.21 7.79 L 168.18 7.76 L 168.15 7.74 L 168.12 7.72 L 168.09 7.70 L 168.06 7.68 L 168.03 7.66 L 168.03 7.66 L 167.99 7.64 L 167.96 7.63 L 167.92 7.61 L 167.89 7.60 L 167.85 7.59 L 167.82 7.58 L 167.78 7.57 L 167.74 7.56 L 167.70 7.55 L 167.66 7.54 L 167.66 7.54 L 167.63 7.54 L 167.59 7.53 L 167.55 7.53 L 167.51 7.52 L 167.47 7.52 L 167.44 7.52 L 167.40 7.52 L 167.36 7.51 L 167.33 7.51 L 167.29 7.51 L 166.89 7.51 L 166.89 6.57 L 167.27 6.57 L 167.27 6.57 L 167.30 6.57 L 167.34 6.57 L 167.37 6.56 L 167.41 6.56 L 167.44 6.56 L 167.48 6.56 L 167.52 6.55 L 167.55 6.55 L 167.59 6.54 L 167.62 6.53 L 167.62 6.53 L 167.66 6.53 L 167.69 6.52 L 167.73 6.51 L 167.76 6.50 L 167.80 6.49 L 167.83 6.47 L 167.86 6.46 L 167.89 6.45 L 167.92 6.43 L 167.95 6.41 L 167.95 6.41 L 167.98 6.40 L 168.01 6.38 L 168.03 6.35 L 168.06 6.33 L 168.08 6.31 L 168.11 6.28 L 168.13 6.26 L 168.15 6.23 L 168.17 6.20 L 168.19 6.17 L 168.19 6.17 L 168.21 6.14 L 168.22 6.11 L 168.24 6.07 L 168.25 6.03 L 168.26 5.99 L 168.27 5.95 L 168.27 5.91 L 168.28 5.87 L 168.28 5.82 L 168.28 5.77 L 168.28 5.77 L 168.28 5.70 L 168.27 5.63 L 168.26 5.57 L 168.25 5.51 L 168.23 5.45 L 168.21 5.39 L 168.18 5.34 L 168.15 5.29 L 168.12 5.25 L 168.08 5.20 L 168.08 5.20 L 168.04 5.17 L 167.99 5.13 L 167.94 5.10 L 167.89 5.07 L 167.83 5.05 L 167.77 5.03 L 167.71 5.02 L 167.64 5.00 L 167.57 5.00 L 167.49 5.00 L 167.49 5.00 L 167.42 5.00 L 167.35 5.00 L 167.28 5.01 L 167.22 5.03 L 167.16 5.05 L 167.10 5.07 L 167.05 5.09 L 167.00 5.12 L 166.95 5.16 L 166.90 5.20 L 166.90 5.20 L 166.86 5.24 L 166.82 5.28 L 166.79 5.33 L 166.76 5.38 L 166.73 5.44 L 166.70 5.50 L 166.68 5.56 L 166.67 5.62 L 166.66 5.69 L 166.65 5.76 L 165.48 5.68 L 165.48 5.68 L 165.49 5.60 L 165.50 5.52 L 165.52 5.44 L 165.54 5.37 L 165.56 5.29 L 165.58 5.22 L 165.61 5.16 L 165.64 5.09 L 165.67 5.03 L 165.70 4.96 L 165.70 4.96 L 165.74 4.90 L 165.78 4.85 L 165.82 4.79 L 165.86 4.74 L 165.90 4.68 L 165.95 4.64 L 166.00 4.59 L 166.04 4.54 L 166.10 4.50 L 166.15 4.46 L 166.15 4.46 L 166.20 4.42 L 166.26 4.38 L 166.32 4.35 L 166.38 4.32 L 166.44 4.28 L 166.50 4.26 L 166.57 4.23 L 166.63 4.21 L 166.70 4.18 L 166.77 4.16 L 166.77 4.16 L 166.84 4.14 L 166.91 4.13 L 166.98 4.11 L 167.06 4.10 L 167.13 4.09 L 167.20 4.08 L 167.28 4.07 L 167.36 4.07 L 167.43 4.06 L 167.51 4.06 L 167.51 4.06 L 167.61 4.06 L 167.71 4.07 L 167.81 4.07 L 167.90 4.08 L 167.99 4.09 L 168.08 4.11 L 168.16 4.12 L 168.24 4.14 L 168.32 4.16 L 168.40 4.19 L 168.40 4.19 L 168.47 4.21 L 168.54 4.24 L 168.61 4.27 L 168.67 4.30 L 168.74 4.33 L 168.80 4.37 L 168.85 4.41 L 168.91 4.44 L 168.96 4.48 L 169.01 4.53 L 169.01 4.53 L 169.05 4.57 L 169.10 4.61 L 169.14 4.66 L 169.18 4.71 L 169.21 4.76 L 169.25 4.81 L 169.28 4.86 L 169.31 4.91 L 169.33 4.97 L 169.36 5.02 L 169.36 5.02 L 169.38 5.08 L 169.40 5.14 L 169.41 5.19 L 169.43 5.25 L 169.44 5.31 L 169.45 5.38 L 169.46 5.44 L 169.46 5.50 L 169.47 5.56 L 169.47 5.63 L 169.47 5.63 L 169.47 5.68 L 169.47 5.73 L 169.46 5.78 L 169.46 5.83 L 169.45 5.88 L 169.44 5.92 L 169.43 5.97 L 169.42 6.02 L 169.41 6.06 L 169.39 6.11 L 169.39 6.11 L 169.38 6.15 L 169.36 6.20 L 169.34 6.24 L 169.32 6.28 L 169.30 6.32 L 169.28 6.36 L 169.25 6.40 L 169.22 6.44 L 169.20 6.47 L 169.17 6.51 L 169.17 6.51 L 169.13 6.54 L 169.10 6.58 L 169.07 6.61 L 169.03 6.64 L 168.99 6.67 L 168.95 6.70 L 168.91 6.73 L 168.87 6.76 L 168.82 6.79 L 168.78 6.81 L 168.78 6.81 L 168.73 6.84 L 168.68 6.86 L 168.63 6.88 L 168.57 6.90 L 168.52 6.92 L 168.46 6.94 L 168.40 6.96 L 168.34 6.97 L 168.28 6.99 L 168.21 7.00 L 168.21 7.02 L 168.21 7.02 L 168.29 7.03 L 168.36 7.04 L 168.42 7.05 L 168.49 7.06 L 168.55 7.08 L 168.62 7.10 L 168.68 7.12 L 168.73 7.14 L 168.79 7.16 L 168.84 7.18 L 168.84 7.18 L 168.90 7.21 L 168.95 7.24 L 169.00 7.26 L 169.04 7.29 L 169.09 7.32 L 169.13 7.35 L 169.17 7.38 L 169.21 7.42 L 169.25 7.45 L 169.28 7.49 L 169.28 7.49 L 169.32 7.53 L 169.35 7.56 L 169.38 7.60 L 169.40 7.64 L 169.43 7.68 L 169.46 7.73 L 169.48 7.77 L 169.50 7.81 L 169.52 7.86 L 169.54 7.91 L 169.54 7.91 L 169.55 7.95 L 169.57 8.00 L 169.58 8.05 L 169.59 8.09 L 169.60 8.14 L 169.61 8.19 L 169.61 8.24 L 169.62 8.29 L 169.62 8.34 L 169.62 8.39 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 177.29 8.22 L 177.29 8.22 L 177.29 8.32 L 177.29 8.42 L 177.28 8.52 L 177.27 8.61 L 177.26 8.70 L 177.25 8.79 L 177.24 8.87 L 177.22 8.95 L 177.20 9.03 L 177.18 9.10 L 177.18 9.10 L 177.15 9.17 L 177.13 9.24 L 177.10 9.30 L 177.07 9.37 L 177.04 9.43 L 177.01 9.48 L 176.97 9.54 L 176.94 9.59 L 176.90 9.64 L 176.86 9.68 L 176.86 9.68 L 176.82 9.72 L 176.78 9.76 L 176.73 9.80 L 176.69 9.84 L 176.64 9.87 L 176.59 9.90 L 176.54 9.93 L 176.49 9.95 L 176.44 9.97 L 176.39 9.99 L 176.39 9.99 L 176.33 10.01 L 176.28 10.03 L 176.22 10.04 L 176.17 10.06 L 176.11 10.07 L 176.05 10.07 L 176.00 10.08 L 175.94 10.09 L 175.88 10.09 L 175.82 10.09 L 175.82 10.09 L 175.75 10.09 L 175.69 10.09 L 175.63 10.08 L 175.57 10.07 L 175.51 10.07 L 175.46 10.06 L 175.40 10.04 L 175.34 10.03 L 175.29 10.01 L 175.23 9.99 L 175.23 9.99 L 175.18 9.97 L 175.13 9.95 L 175.08 9.93 L 175.03 9.90 L 174.98 9.87 L 174.94 9.84 L 174.89 9.80 L 174.85 9.76 L 174.81 9.72 L 174.77 9.68 L 174.77 9.68 L 174.73 9.64 L 174.69 9.59 L 174.66 9.54 L 174.62 9.48 L 174.59 9.43 L 174.56 9.37 L 174.53 9.30 L 174.50 9.24 L 174.48 9.17 L 174.45 9.10 L 174.45 9.10 L 174.43 9.03 L 174.41 8.95 L 174.40 8.87 L 174.38 8.79 L 174.37 8.70 L 174.36 8.61 L 174.35 8.52 L 174.35 8.42 L 174.34 8.32 L 174.34 8.22 L 174.34 8.22 L 174.34 8.11 L 174.35 8.01 L 174.35 7.91 L 174.36 7.81 L 174.37 7.72 L 174.38 7.63 L 174.40 7.55 L 174.41 7.46 L 174.43 7.39 L 174.45 7.31 L 174.45 7.31 L 174.48 7.24 L 174.50 7.17 L 174.53 7.11 L 174.56 7.05 L 174.59 6.99 L 174.62 6.93 L 174.66 6.88 L 174.69 6.83 L 174.73 6.78 L 174.77 6.74 L 174.77 6.74 L 174.81 6.70 L 174.85 6.66 L 174.90 6.62 L 174.94 6.59 L 174.99 6.56 L 175.04 6.53 L 175.09 6.50 L 175.14 6.48 L 175.19 6.46 L 175.24 6.44 L 175.24 6.44 L 175.30 6.42 L 175.35 6.41 L 175.41 6.39 L 175.47 6.38 L 175.53 6.37 L 175.59 6.36 L 175.65 6.36 L 175.71 6.35 L 175.77 6.35 L 175.83 6.35 L 175.83 6.35 L 175.89 6.35 L 175.95 6.35 L 176.01 6.36 L 176.07 6.36 L 176.13 6.37 L 176.18 6.38 L 176.24 6.39 L 176.29 6.41 L 176.35 6.42 L 176.40 6.44 L 176.40 6.44 L 176.45 6.46 L 176.50 6.48 L 176.55 6.50 L 176.60 6.53 L 176.65 6.56 L 176.70 6.59 L 176.74 6.62 L 176.78 6.66 L 176.82 6.70 L 176.86 6.74 L 176.86 6.74 L 176.90 6.78 L 176.94 6.83 L 176.98 6.88 L 177.01 6.93 L 177.04 6.99 L 177.07 7.05 L 177.10 7.11 L 177.13 7.17 L 177.15 7.24 L 177.18 7.31 L 177.18 7.31 L 177.20 7.39 L 177.22 7.46 L 177.24 7.55 L 177.25 7.63 L 177.26 7.72 L 177.27 7.81 L 177.28 7.91 L 177.29 8.01 L 177.29 8.11 L 177.29 8.22 ZM 172.23 10.02 L 171.37 10.02 L 175.20 4.15 L 176.08 4.15 L 172.23 10.02 ZM 171.63 4.08 L 171.63 4.08 L 171.69 4.08 L 171.75 4.09 L 171.81 4.09 L 171.86 4.10 L 171.92 4.11 L 171.98 4.12 L 172.03 4.13 L 172.09 4.14 L 172.14 4.15 L 172.20 4.17 L 172.20 4.17 L 172.25 4.19 L 172.30 4.21 L 172.35 4.23 L 172.40 4.26 L 172.45 4.29 L 172.49 4.32 L 172.54 4.35 L 172.58 4.39 L 172.62 4.43 L 172.66 4.47 L 172.66 4.47 L 172.70 4.51 L 172.74 4.56 L 172.77 4.61 L 172.81 4.66 L 172.84 4.72 L 172.87 4.78 L 172.90 4.84 L 172.93 4.90 L 172.95 4.97 L 172.98 5.04 L 172.98 5.04 L 173.00 5.12 L 173.02 5.19 L 173.04 5.27 L 173.05 5.36 L 173.07 5.45 L 173.08 5.54 L 173.08 5.64 L 173.09 5.74 L 173.09 5.84 L 173.10 5.95 L 173.10 5.95 L 173.09 6.05 L 173.09 6.15 L 173.08 6.25 L 173.08 6.34 L 173.07 6.43 L 173.05 6.52 L 173.04 6.60 L 173.02 6.68 L 173.00 6.76 L 172.98 6.83 L 172.98 6.83 L 172.95 6.90 L 172.93 6.97 L 172.90 7.03 L 172.87 7.10 L 172.84 7.15 L 172.81 7.21 L 172.77 7.26 L 172.74 7.32 L 172.70 7.36 L 172.66 7.41 L 172.66 7.41 L 172.62 7.45 L 172.57 7.49 L 172.53 7.53 L 172.49 7.57 L 172.44 7.60 L 172.39 7.63 L 172.34 7.66 L 172.29 7.68 L 172.24 7.71 L 172.19 7.73 L 172.19 7.73 L 172.13 7.74 L 172.08 7.76 L 172.02 7.78 L 171.96 7.79 L 171.91 7.80 L 171.85 7.81 L 171.79 7.81 L 171.73 7.82 L 171.67 7.82 L 171.61 7.82 L 171.61 7.82 L 171.55 7.82 L 171.49 7.82 L 171.43 7.81 L 171.37 7.81 L 171.31 7.80 L 171.25 7.79 L 171.20 7.78 L 171.14 7.76 L 171.09 7.74 L 171.03 7.73 L 171.03 7.73 L 170.98 7.71 L 170.93 7.68 L 170.88 7.66 L 170.83 7.63 L 170.78 7.60 L 170.74 7.57 L 170.69 7.53 L 170.65 7.50 L 170.61 7.46 L 170.57 7.41 L 170.57 7.41 L 170.53 7.37 L 170.49 7.32 L 170.46 7.27 L 170.42 7.22 L 170.39 7.16 L 170.36 7.10 L 170.33 7.04 L 170.30 6.97 L 170.28 6.90 L 170.25 6.83 L 170.25 6.83 L 170.23 6.76 L 170.21 6.68 L 170.20 6.60 L 170.18 6.52 L 170.17 6.43 L 170.16 6.34 L 170.15 6.25 L 170.14 6.15 L 170.14 6.05 L 170.14 5.95 L 170.14 5.95 L 170.14 5.84 L 170.14 5.74 L 170.15 5.64 L 170.16 5.54 L 170.17 5.45 L 170.18 5.36 L 170.20 5.27 L 170.21 5.19 L 170.23 5.12 L 170.25 5.04 L 170.25 5.04 L 170.28 4.97 L 170.30 4.90 L 170.33 4.84 L 170.36 4.78 L 170.39 4.72 L 170.42 4.66 L 170.45 4.61 L 170.49 4.56 L 170.53 4.51 L 170.57 4.47 L 170.57 4.47 L 170.61 4.43 L 170.65 4.39 L 170.69 4.35 L 170.74 4.32 L 170.78 4.29 L 170.83 4.26 L 170.88 4.23 L 170.93 4.21 L 170.98 4.19 L 171.04 4.17 L 171.04 4.17 L 171.09 4.15 L 171.15 4.14 L 171.21 4.13 L 171.26 4.12 L 171.32 4.11 L 171.38 4.10 L 171.44 4.09 L 171.50 4.09 L 171.57 4.08 L 171.63 4.08 ZM 176.40 8.22 L 176.40 8.22 L 176.40 8.15 L 176.39 8.08 L 176.39 8.02 L 176.39 7.95 L 176.39 7.89 L 176.38 7.83 L 176.38 7.78 L 176.37 7.72 L 176.37 7.67 L 176.36 7.62 L 176.36 7.62 L 176.35 7.58 L 176.34 7.53 L 176.34 7.49 L 176.33 7.45 L 176.32 7.41 L 176.31 7.37 L 176.29 7.34 L 176.28 7.31 L 176.27 7.28 L 176.25 7.25 L 176.25 7.25 L 176.24 7.22 L 176.22 7.19 L 176.21 7.17 L 176.19 7.15 L 176.18 7.13 L 176.16 7.11 L 176.14 7.09 L 176.12 7.08 L 176.10 7.06 L 176.08 7.05 L 176.08 7.05 L 176.06 7.04 L 176.04 7.03 L 176.01 7.02 L 175.99 7.01 L 175.97 7.01 L 175.94 7.00 L 175.92 7.00 L 175.89 7.00 L 175.86 6.99 L 175.83 6.99 L 175.83 6.99 L 175.80 6.99 L 175.77 7.00 L 175.74 7.00 L 175.72 7.00 L 175.69 7.01 L 175.66 7.01 L 175.64 7.02 L 175.61 7.03 L 175.59 7.04 L 175.57 7.05 L 175.57 7.05 L 175.55 7.06 L 175.53 7.08 L 175.51 7.09 L 175.49 7.11 L 175.47 7.13 L 175.45 7.15 L 175.43 7.17 L 175.42 7.19 L 175.40 7.22 L 175.39 7.25 L 175.39 7.25 L 175.37 7.28 L 175.36 7.31 L 175.35 7.34 L 175.34 7.38 L 175.33 7.41 L 175.31 7.45 L 175.30 7.49 L 175.30 7.54 L 175.29 7.58 L 175.28 7.63 L 175.28 7.63 L 175.27 7.68 L 175.27 7.73 L 175.26 7.78 L 175.26 7.84 L 175.25 7.89 L 175.25 7.95 L 175.25 8.02 L 175.25 8.08 L 175.25 8.15 L 175.25 8.22 L 175.25 8.22 L 175.25 8.29 L 175.25 8.36 L 175.25 8.42 L 175.25 8.48 L 175.25 8.54 L 175.26 8.60 L 175.26 8.66 L 175.27 8.71 L 175.27 8.76 L 175.28 8.81 L 175.28 8.81 L 175.29 8.85 L 175.29 8.89 L 175.30 8.94 L 175.31 8.98 L 175.32 9.01 L 175.33 9.05 L 175.34 9.08 L 175.36 9.12 L 175.37 9.15 L 175.38 9.18 L 175.38 9.18 L 175.40 9.20 L 175.41 9.23 L 175.43 9.25 L 175.45 9.28 L 175.47 9.30 L 175.49 9.32 L 175.50 9.33 L 175.52 9.35 L 175.55 9.36 L 175.57 9.38 L 175.57 9.38 L 175.59 9.39 L 175.61 9.40 L 175.64 9.41 L 175.66 9.41 L 175.69 9.42 L 175.71 9.43 L 175.74 9.43 L 175.77 9.43 L 175.80 9.43 L 175.83 9.44 L 175.83 9.44 L 175.85 9.43 L 175.88 9.43 L 175.90 9.43 L 175.93 9.43 L 175.95 9.42 L 175.98 9.41 L 176.00 9.41 L 176.02 9.40 L 176.05 9.39 L 176.07 9.38 L 176.07 9.38 L 176.09 9.36 L 176.11 9.35 L 176.13 9.33 L 176.15 9.32 L 176.17 9.30 L 176.18 9.28 L 176.20 9.26 L 176.22 9.23 L 176.23 9.21 L 176.25 9.18 L 176.25 9.18 L 176.26 9.15 L 176.27 9.12 L 176.29 9.09 L 176.30 9.05 L 176.31 9.02 L 176.32 8.98 L 176.33 8.94 L 176.34 8.90 L 176.35 8.85 L 176.36 8.81 L 176.36 8.81 L 176.37 8.76 L 176.37 8.71 L 176.38 8.66 L 176.38 8.60 L 176.39 8.54 L 176.39 8.48 L 176.39 8.42 L 176.39 8.36 L 176.40 8.29 L 176.40 8.22 ZM 172.19 5.95 L 172.19 5.95 L 172.19 5.88 L 172.19 5.81 L 172.19 5.75 L 172.18 5.68 L 172.18 5.62 L 172.18 5.57 L 172.17 5.51 L 172.17 5.46 L 172.16 5.41 L 172.15 5.36 L 172.15 5.36 L 172.15 5.31 L 172.14 5.27 L 172.13 5.23 L 172.12 5.18 L 172.11 5.15 L 172.10 5.11 L 172.09 5.08 L 172.08 5.04 L 172.06 5.01 L 172.05 4.98 L 172.05 4.98 L 172.03 4.96 L 172.02 4.93 L 172.00 4.91 L 171.99 4.88 L 171.97 4.86 L 171.95 4.85 L 171.93 4.83 L 171.91 4.81 L 171.89 4.80 L 171.87 4.79 L 171.87 4.79 L 171.85 4.78 L 171.83 4.77 L 171.81 4.76 L 171.78 4.75 L 171.76 4.74 L 171.74 4.74 L 171.71 4.73 L 171.68 4.73 L 171.66 4.73 L 171.63 4.73 L 171.63 4.73 L 171.60 4.73 L 171.57 4.73 L 171.54 4.73 L 171.51 4.74 L 171.48 4.74 L 171.46 4.75 L 171.43 4.76 L 171.41 4.77 L 171.38 4.78 L 171.36 4.79 L 171.36 4.79 L 171.34 4.80 L 171.32 4.81 L 171.30 4.83 L 171.28 4.85 L 171.26 4.87 L 171.24 4.89 L 171.22 4.91 L 171.21 4.93 L 171.19 4.96 L 171.18 4.99 L 171.18 4.99 L 171.16 5.02 L 171.15 5.05 L 171.14 5.08 L 171.13 5.11 L 171.12 5.15 L 171.11 5.19 L 171.10 5.23 L 171.09 5.27 L 171.08 5.32 L 171.07 5.36 L 171.07 5.36 L 171.06 5.41 L 171.06 5.46 L 171.05 5.51 L 171.05 5.57 L 171.04 5.63 L 171.04 5.69 L 171.04 5.75 L 171.04 5.81 L 171.04 5.88 L 171.04 5.95 L 171.04 5.95 L 171.04 6.02 L 171.04 6.09 L 171.04 6.15 L 171.04 6.21 L 171.04 6.27 L 171.05 6.33 L 171.05 6.38 L 171.06 6.44 L 171.06 6.49 L 171.07 6.53 L 171.07 6.53 L 171.08 6.58 L 171.09 6.62 L 171.10 6.67 L 171.11 6.71 L 171.12 6.74 L 171.13 6.78 L 171.14 6.82 L 171.15 6.85 L 171.16 6.88 L 171.18 6.91 L 171.18 6.91 L 171.19 6.94 L 171.21 6.96 L 171.23 6.99 L 171.24 7.01 L 171.26 7.03 L 171.28 7.05 L 171.30 7.07 L 171.32 7.09 L 171.34 7.10 L 171.36 7.11 L 171.36 7.11 L 171.38 7.12 L 171.41 7.13 L 171.43 7.14 L 171.45 7.15 L 171.48 7.16 L 171.51 7.16 L 171.53 7.17 L 171.56 7.17 L 171.59 7.17 L 171.62 7.17 L 171.62 7.17 L 171.65 7.17 L 171.68 7.17 L 171.70 7.17 L 171.73 7.16 L 171.75 7.16 L 171.78 7.15 L 171.80 7.14 L 171.82 7.13 L 171.84 7.12 L 171.87 7.11 L 171.87 7.11 L 171.89 7.10 L 171.91 7.09 L 171.93 7.07 L 171.95 7.05 L 171.96 7.03 L 171.98 7.01 L 172.00 6.99 L 172.02 6.97 L 172.03 6.94 L 172.05 6.91 L 172.05 6.91 L 172.06 6.88 L 172.07 6.85 L 172.09 6.82 L 172.10 6.79 L 172.11 6.75 L 172.12 6.71 L 172.13 6.67 L 172.14 6.63 L 172.15 6.58 L 172.15 6.54 L 172.15 6.54 L 172.16 6.49 L 172.17 6.44 L 172.17 6.39 L 172.18 6.33 L 172.18 6.27 L 172.18 6.21 L 172.19 6.15 L 172.19 6.09 L 172.19 6.02 L 172.19 5.95 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path></g></g>
+</svg></td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Fire Flame Simple" role="img" viewbox="0 0 384 512" style="height:1em;width:0.75em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Fire Flame Simple
+</title>
+<path d="M372.5 256.5l-.7-1.9C337.8 160.8 282 76.5 209.1 8.5l-3.3-3C202.1 2 197.1 0 192 0s-10.1 2-13.8 5.5l-3.3 3C102 76.5 46.2 160.8 12.2 254.6l-.7 1.9C3.9 277.3 0 299.4 0 321.6C0 426.7 86.8 512 192 512s192-85.3 192-190.4c0-22.2-3.9-44.2-11.5-65.1zm-90.8 49.5c4.1 9.3 6.2 19.4 6.2 29.5c0 53-43 96.5-96 96.5s-96-43.5-96-96.5c0-10.1 2.1-20.3 6.2-29.5l1.9-4.3c15.8-35.4 37.9-67.7 65.3-95.1l8.9-8.9c3.6-3.6 8.5-5.6 13.6-5.6s10 2 13.6 5.6l8.9 8.9c27.4 27.4 49.6 59.7 65.3 95.1l1.9 4.3z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="fuel_type">Gas</td>
+<td class="gt_row gt_left" headers="pct_fuel"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="132.26" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><path d="M 124.98 8.39 L 124.98 8.39 L 124.98 8.47 L 124.97 8.55 L 124.96 8.63 L 124.96 8.70 L 124.94 8.77 L 124.93 8.84 L 124.91 8.91 L 124.89 8.98 L 124.87 9.05 L 124.84 9.11 L 124.84 9.11 L 124.82 9.18 L 124.79 9.24 L 124.75 9.30 L 124.72 9.35 L 124.68 9.41 L 124.64 9.46 L 124.60 9.51 L 124.55 9.56 L 124.50 9.61 L 124.45 9.66 L 124.45 9.66 L 124.40 9.70 L 124.34 9.74 L 124.28 9.78 L 124.22 9.82 L 124.16 9.86 L 124.09 9.89 L 124.02 9.92 L 123.95 9.95 L 123.87 9.98 L 123.80 10.00 L 123.80 10.00 L 123.72 10.02 L 123.64 10.04 L 123.55 10.06 L 123.47 10.08 L 123.38 10.09 L 123.29 10.10 L 123.19 10.11 L 123.09 10.11 L 122.99 10.12 L 122.89 10.12 L 122.89 10.12 L 122.78 10.12 L 122.67 10.11 L 122.56 10.11 L 122.46 10.10 L 122.36 10.08 L 122.27 10.07 L 122.18 10.05 L 122.09 10.03 L 122.00 10.00 L 121.92 9.97 L 121.92 9.97 L 121.84 9.94 L 121.77 9.91 L 121.70 9.88 L 121.63 9.84 L 121.56 9.80 L 121.50 9.76 L 121.44 9.72 L 121.38 9.68 L 121.33 9.64 L 121.28 9.59 L 121.28 9.59 L 121.23 9.54 L 121.18 9.49 L 121.14 9.44 L 121.09 9.39 L 121.06 9.33 L 121.02 9.28 L 120.98 9.22 L 120.95 9.16 L 120.92 9.10 L 120.90 9.04 L 120.90 9.04 L 120.87 8.98 L 120.85 8.92 L 120.83 8.86 L 120.81 8.80 L 120.79 8.74 L 120.78 8.68 L 120.76 8.61 L 120.75 8.55 L 120.74 8.49 L 120.73 8.43 L 121.93 8.32 L 121.93 8.32 L 121.93 8.36 L 121.94 8.40 L 121.94 8.43 L 121.95 8.47 L 121.96 8.50 L 121.97 8.54 L 121.98 8.57 L 121.99 8.60 L 122.00 8.64 L 122.02 8.67 L 122.02 8.67 L 122.03 8.70 L 122.05 8.73 L 122.06 8.76 L 122.08 8.79 L 122.10 8.81 L 122.12 8.84 L 122.14 8.86 L 122.16 8.89 L 122.18 8.91 L 122.20 8.94 L 122.20 8.94 L 122.23 8.96 L 122.25 8.98 L 122.28 9.00 L 122.31 9.02 L 122.33 9.04 L 122.36 9.05 L 122.39 9.07 L 122.42 9.08 L 122.46 9.10 L 122.49 9.11 L 122.49 9.11 L 122.52 9.12 L 122.56 9.13 L 122.60 9.14 L 122.63 9.15 L 122.67 9.15 L 122.71 9.16 L 122.76 9.16 L 122.80 9.17 L 122.84 9.17 L 122.89 9.17 L 122.89 9.17 L 122.97 9.17 L 123.05 9.16 L 123.12 9.15 L 123.20 9.14 L 123.26 9.12 L 123.33 9.09 L 123.39 9.07 L 123.44 9.04 L 123.49 9.00 L 123.54 8.96 L 123.54 8.96 L 123.59 8.92 L 123.63 8.87 L 123.66 8.82 L 123.69 8.76 L 123.72 8.70 L 123.74 8.63 L 123.76 8.56 L 123.77 8.49 L 123.77 8.41 L 123.78 8.32 L 123.78 8.32 L 123.78 8.27 L 123.77 8.22 L 123.77 8.17 L 123.76 8.13 L 123.75 8.09 L 123.74 8.04 L 123.72 8.01 L 123.70 7.97 L 123.69 7.93 L 123.66 7.90 L 123.66 7.90 L 123.64 7.87 L 123.62 7.84 L 123.59 7.81 L 123.57 7.79 L 123.54 7.76 L 123.51 7.74 L 123.48 7.72 L 123.45 7.70 L 123.42 7.68 L 123.38 7.66 L 123.38 7.66 L 123.35 7.64 L 123.32 7.63 L 123.28 7.61 L 123.25 7.60 L 123.21 7.59 L 123.17 7.58 L 123.14 7.57 L 123.10 7.56 L 123.06 7.55 L 123.02 7.54 L 123.02 7.54 L 122.98 7.54 L 122.94 7.53 L 122.91 7.53 L 122.87 7.52 L 122.83 7.52 L 122.79 7.52 L 122.76 7.52 L 122.72 7.51 L 122.69 7.51 L 122.65 7.51 L 122.24 7.51 L 122.24 6.57 L 122.63 6.57 L 122.63 6.57 L 122.66 6.57 L 122.70 6.57 L 122.73 6.56 L 122.77 6.56 L 122.80 6.56 L 122.84 6.56 L 122.87 6.55 L 122.91 6.55 L 122.94 6.54 L 122.98 6.53 L 122.98 6.53 L 123.02 6.53 L 123.05 6.52 L 123.09 6.51 L 123.12 6.50 L 123.15 6.49 L 123.19 6.47 L 123.22 6.46 L 123.25 6.45 L 123.28 6.43 L 123.31 6.41 L 123.31 6.41 L 123.34 6.40 L 123.37 6.38 L 123.39 6.35 L 123.42 6.33 L 123.44 6.31 L 123.46 6.28 L 123.49 6.26 L 123.51 6.23 L 123.53 6.20 L 123.55 6.17 L 123.55 6.17 L 123.56 6.14 L 123.58 6.11 L 123.59 6.07 L 123.61 6.03 L 123.62 5.99 L 123.62 5.95 L 123.63 5.91 L 123.63 5.87 L 123.64 5.82 L 123.64 5.77 L 123.64 5.77 L 123.64 5.70 L 123.63 5.63 L 123.62 5.57 L 123.61 5.51 L 123.59 5.45 L 123.57 5.39 L 123.54 5.34 L 123.51 5.29 L 123.47 5.25 L 123.43 5.20 L 123.43 5.20 L 123.39 5.17 L 123.35 5.13 L 123.30 5.10 L 123.24 5.07 L 123.19 5.05 L 123.13 5.03 L 123.06 5.02 L 122.99 5.00 L 122.92 5.00 L 122.85 5.00 L 122.85 5.00 L 122.78 5.00 L 122.71 5.00 L 122.64 5.01 L 122.58 5.03 L 122.52 5.05 L 122.46 5.07 L 122.41 5.09 L 122.35 5.12 L 122.31 5.16 L 122.26 5.20 L 122.26 5.20 L 122.22 5.24 L 122.18 5.28 L 122.14 5.33 L 122.11 5.38 L 122.09 5.44 L 122.06 5.50 L 122.04 5.56 L 122.03 5.62 L 122.01 5.69 L 122.00 5.76 L 120.83 5.68 L 120.83 5.68 L 120.84 5.60 L 120.86 5.52 L 120.87 5.44 L 120.89 5.37 L 120.91 5.29 L 120.94 5.22 L 120.96 5.16 L 120.99 5.09 L 121.02 5.03 L 121.06 4.96 L 121.06 4.96 L 121.10 4.90 L 121.13 4.85 L 121.17 4.79 L 121.22 4.74 L 121.26 4.68 L 121.31 4.64 L 121.35 4.59 L 121.40 4.54 L 121.45 4.50 L 121.50 4.46 L 121.50 4.46 L 121.56 4.42 L 121.62 4.38 L 121.67 4.35 L 121.73 4.32 L 121.80 4.28 L 121.86 4.26 L 121.92 4.23 L 121.99 4.21 L 122.06 4.18 L 122.13 4.16 L 122.13 4.16 L 122.20 4.14 L 122.27 4.13 L 122.34 4.11 L 122.41 4.10 L 122.49 4.09 L 122.56 4.08 L 122.64 4.07 L 122.71 4.07 L 122.79 4.06 L 122.87 4.06 L 122.87 4.06 L 122.97 4.06 L 123.07 4.07 L 123.16 4.07 L 123.26 4.08 L 123.35 4.09 L 123.44 4.11 L 123.52 4.12 L 123.60 4.14 L 123.68 4.16 L 123.76 4.19 L 123.76 4.19 L 123.83 4.21 L 123.90 4.24 L 123.97 4.27 L 124.03 4.30 L 124.09 4.33 L 124.15 4.37 L 124.21 4.41 L 124.26 4.44 L 124.31 4.48 L 124.36 4.53 L 124.36 4.53 L 124.41 4.57 L 124.45 4.61 L 124.50 4.66 L 124.53 4.71 L 124.57 4.76 L 124.60 4.81 L 124.64 4.86 L 124.66 4.91 L 124.69 4.97 L 124.71 5.02 L 124.71 5.02 L 124.74 5.08 L 124.75 5.14 L 124.77 5.19 L 124.79 5.25 L 124.80 5.31 L 124.81 5.38 L 124.82 5.44 L 124.82 5.50 L 124.83 5.56 L 124.83 5.63 L 124.83 5.63 L 124.83 5.68 L 124.82 5.73 L 124.82 5.78 L 124.81 5.83 L 124.81 5.88 L 124.80 5.92 L 124.79 5.97 L 124.78 6.02 L 124.77 6.06 L 124.75 6.11 L 124.75 6.11 L 124.74 6.15 L 124.72 6.20 L 124.70 6.24 L 124.68 6.28 L 124.66 6.32 L 124.63 6.36 L 124.61 6.40 L 124.58 6.44 L 124.55 6.47 L 124.52 6.51 L 124.52 6.51 L 124.49 6.54 L 124.46 6.58 L 124.42 6.61 L 124.39 6.64 L 124.35 6.67 L 124.31 6.70 L 124.27 6.73 L 124.23 6.76 L 124.18 6.79 L 124.13 6.81 L 124.13 6.81 L 124.09 6.84 L 124.04 6.86 L 123.98 6.88 L 123.93 6.90 L 123.88 6.92 L 123.82 6.94 L 123.76 6.96 L 123.70 6.97 L 123.64 6.99 L 123.57 7.00 L 123.57 7.02 L 123.57 7.02 L 123.64 7.03 L 123.71 7.04 L 123.78 7.05 L 123.85 7.06 L 123.91 7.08 L 123.97 7.10 L 124.03 7.12 L 124.09 7.14 L 124.15 7.16 L 124.20 7.18 L 124.20 7.18 L 124.25 7.21 L 124.30 7.24 L 124.35 7.26 L 124.40 7.29 L 124.44 7.32 L 124.49 7.35 L 124.53 7.38 L 124.57 7.42 L 124.60 7.45 L 124.64 7.49 L 124.64 7.49 L 124.67 7.53 L 124.70 7.56 L 124.73 7.60 L 124.76 7.64 L 124.79 7.68 L 124.81 7.73 L 124.84 7.77 L 124.86 7.81 L 124.88 7.86 L 124.89 7.91 L 124.89 7.91 L 124.91 7.95 L 124.92 8.00 L 124.94 8.05 L 124.95 8.09 L 124.96 8.14 L 124.96 8.19 L 124.97 8.24 L 124.97 8.29 L 124.98 8.34 L 124.98 8.39 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 129.72 8.39 L 129.72 8.39 L 129.72 8.47 L 129.72 8.55 L 129.71 8.63 L 129.70 8.70 L 129.69 8.77 L 129.68 8.84 L 129.66 8.91 L 129.64 8.98 L 129.62 9.05 L 129.59 9.11 L 129.59 9.11 L 129.56 9.18 L 129.53 9.24 L 129.50 9.30 L 129.47 9.35 L 129.43 9.41 L 129.39 9.46 L 129.34 9.51 L 129.30 9.56 L 129.25 9.61 L 129.20 9.66 L 129.20 9.66 L 129.14 9.70 L 129.09 9.74 L 129.03 9.78 L 128.97 9.82 L 128.90 9.86 L 128.84 9.89 L 128.77 9.92 L 128.70 9.95 L 128.62 9.98 L 128.54 10.00 L 128.54 10.00 L 128.47 10.02 L 128.38 10.04 L 128.30 10.06 L 128.21 10.08 L 128.12 10.09 L 128.03 10.10 L 127.94 10.11 L 127.84 10.11 L 127.74 10.12 L 127.64 10.12 L 127.64 10.12 L 127.53 10.12 L 127.42 10.11 L 127.31 10.11 L 127.21 10.10 L 127.11 10.08 L 127.01 10.07 L 126.92 10.05 L 126.83 10.03 L 126.75 10.00 L 126.67 9.97 L 126.67 9.97 L 126.59 9.94 L 126.52 9.91 L 126.45 9.88 L 126.38 9.84 L 126.31 9.80 L 126.25 9.76 L 126.19 9.72 L 126.13 9.68 L 126.07 9.64 L 126.02 9.59 L 126.02 9.59 L 125.97 9.54 L 125.93 9.49 L 125.88 9.44 L 125.84 9.39 L 125.80 9.33 L 125.77 9.28 L 125.73 9.22 L 125.70 9.16 L 125.67 9.10 L 125.64 9.04 L 125.64 9.04 L 125.62 8.98 L 125.60 8.92 L 125.58 8.86 L 125.56 8.80 L 125.54 8.74 L 125.52 8.68 L 125.51 8.61 L 125.50 8.55 L 125.49 8.49 L 125.48 8.43 L 126.67 8.32 L 126.67 8.32 L 126.68 8.36 L 126.68 8.40 L 126.69 8.43 L 126.70 8.47 L 126.71 8.50 L 126.72 8.54 L 126.73 8.57 L 126.74 8.60 L 126.75 8.64 L 126.76 8.67 L 126.76 8.67 L 126.78 8.70 L 126.79 8.73 L 126.81 8.76 L 126.83 8.79 L 126.85 8.81 L 126.87 8.84 L 126.89 8.86 L 126.91 8.89 L 126.93 8.91 L 126.95 8.94 L 126.95 8.94 L 126.98 8.96 L 127.00 8.98 L 127.03 9.00 L 127.05 9.02 L 127.08 9.04 L 127.11 9.05 L 127.14 9.07 L 127.17 9.08 L 127.20 9.10 L 127.24 9.11 L 127.24 9.11 L 127.27 9.12 L 127.31 9.13 L 127.34 9.14 L 127.38 9.15 L 127.42 9.15 L 127.46 9.16 L 127.50 9.16 L 127.55 9.17 L 127.59 9.17 L 127.64 9.17 L 127.64 9.17 L 127.72 9.17 L 127.80 9.16 L 127.87 9.15 L 127.94 9.14 L 128.01 9.12 L 128.07 9.09 L 128.13 9.07 L 128.19 9.04 L 128.24 9.00 L 128.29 8.96 L 128.29 8.96 L 128.33 8.92 L 128.37 8.87 L 128.41 8.82 L 128.44 8.76 L 128.47 8.70 L 128.49 8.63 L 128.50 8.56 L 128.51 8.49 L 128.52 8.41 L 128.52 8.32 L 128.52 8.32 L 128.52 8.27 L 128.52 8.22 L 128.51 8.17 L 128.51 8.13 L 128.50 8.09 L 128.48 8.04 L 128.47 8.01 L 128.45 7.97 L 128.43 7.93 L 128.41 7.90 L 128.41 7.90 L 128.39 7.87 L 128.37 7.84 L 128.34 7.81 L 128.31 7.79 L 128.29 7.76 L 128.26 7.74 L 128.23 7.72 L 128.20 7.70 L 128.17 7.68 L 128.13 7.66 L 128.13 7.66 L 128.10 7.64 L 128.06 7.63 L 128.03 7.61 L 127.99 7.60 L 127.96 7.59 L 127.92 7.58 L 127.88 7.57 L 127.85 7.56 L 127.81 7.55 L 127.77 7.54 L 127.77 7.54 L 127.73 7.54 L 127.69 7.53 L 127.65 7.53 L 127.62 7.52 L 127.58 7.52 L 127.54 7.52 L 127.50 7.52 L 127.47 7.51 L 127.43 7.51 L 127.40 7.51 L 126.99 7.51 L 126.99 6.57 L 127.37 6.57 L 127.37 6.57 L 127.41 6.57 L 127.44 6.57 L 127.48 6.56 L 127.51 6.56 L 127.55 6.56 L 127.58 6.56 L 127.62 6.55 L 127.66 6.55 L 127.69 6.54 L 127.73 6.53 L 127.73 6.53 L 127.76 6.53 L 127.80 6.52 L 127.83 6.51 L 127.87 6.50 L 127.90 6.49 L 127.93 6.47 L 127.97 6.46 L 128.00 6.45 L 128.03 6.43 L 128.06 6.41 L 128.06 6.41 L 128.09 6.40 L 128.11 6.38 L 128.14 6.35 L 128.16 6.33 L 128.19 6.31 L 128.21 6.28 L 128.23 6.26 L 128.26 6.23 L 128.28 6.20 L 128.29 6.17 L 128.29 6.17 L 128.31 6.14 L 128.33 6.11 L 128.34 6.07 L 128.35 6.03 L 128.36 5.99 L 128.37 5.95 L 128.38 5.91 L 128.38 5.87 L 128.38 5.82 L 128.39 5.77 L 128.39 5.77 L 128.38 5.70 L 128.38 5.63 L 128.37 5.57 L 128.35 5.51 L 128.33 5.45 L 128.31 5.39 L 128.29 5.34 L 128.26 5.29 L 128.22 5.25 L 128.18 5.20 L 128.18 5.20 L 128.14 5.17 L 128.09 5.13 L 128.04 5.10 L 127.99 5.07 L 127.93 5.05 L 127.87 5.03 L 127.81 5.02 L 127.74 5.00 L 127.67 5.00 L 127.59 5.00 L 127.59 5.00 L 127.52 5.00 L 127.45 5.00 L 127.39 5.01 L 127.33 5.03 L 127.27 5.05 L 127.21 5.07 L 127.15 5.09 L 127.10 5.12 L 127.05 5.16 L 127.01 5.20 L 127.01 5.20 L 126.96 5.24 L 126.93 5.28 L 126.89 5.33 L 126.86 5.38 L 126.83 5.44 L 126.81 5.50 L 126.79 5.56 L 126.77 5.62 L 126.76 5.69 L 126.75 5.76 L 125.58 5.68 L 125.58 5.68 L 125.59 5.60 L 125.61 5.52 L 125.62 5.44 L 125.64 5.37 L 125.66 5.29 L 125.69 5.22 L 125.71 5.16 L 125.74 5.09 L 125.77 5.03 L 125.81 4.96 L 125.81 4.96 L 125.84 4.90 L 125.88 4.85 L 125.92 4.79 L 125.96 4.74 L 126.01 4.68 L 126.05 4.64 L 126.10 4.59 L 126.15 4.54 L 126.20 4.50 L 126.25 4.46 L 126.25 4.46 L 126.31 4.42 L 126.36 4.38 L 126.42 4.35 L 126.48 4.32 L 126.54 4.28 L 126.61 4.26 L 126.67 4.23 L 126.74 4.21 L 126.80 4.18 L 126.87 4.16 L 126.87 4.16 L 126.94 4.14 L 127.01 4.13 L 127.09 4.11 L 127.16 4.10 L 127.23 4.09 L 127.31 4.08 L 127.38 4.07 L 127.46 4.07 L 127.54 4.06 L 127.61 4.06 L 127.61 4.06 L 127.72 4.06 L 127.82 4.07 L 127.91 4.07 L 128.00 4.08 L 128.10 4.09 L 128.18 4.11 L 128.27 4.12 L 128.35 4.14 L 128.43 4.16 L 128.50 4.19 L 128.50 4.19 L 128.58 4.21 L 128.65 4.24 L 128.71 4.27 L 128.78 4.30 L 128.84 4.33 L 128.90 4.37 L 128.96 4.41 L 129.01 4.44 L 129.06 4.48 L 129.11 4.53 L 129.11 4.53 L 129.16 4.57 L 129.20 4.61 L 129.24 4.66 L 129.28 4.71 L 129.32 4.76 L 129.35 4.81 L 129.38 4.86 L 129.41 4.91 L 129.44 4.97 L 129.46 5.02 L 129.46 5.02 L 129.48 5.08 L 129.50 5.14 L 129.52 5.19 L 129.53 5.25 L 129.55 5.31 L 129.56 5.38 L 129.56 5.44 L 129.57 5.50 L 129.57 5.56 L 129.57 5.63 L 129.57 5.63 L 129.57 5.68 L 129.57 5.73 L 129.57 5.78 L 129.56 5.83 L 129.55 5.88 L 129.55 5.92 L 129.54 5.97 L 129.53 6.02 L 129.51 6.06 L 129.50 6.11 L 129.50 6.11 L 129.48 6.15 L 129.47 6.20 L 129.45 6.24 L 129.43 6.28 L 129.40 6.32 L 129.38 6.36 L 129.35 6.40 L 129.33 6.44 L 129.30 6.47 L 129.27 6.51 L 129.27 6.51 L 129.24 6.54 L 129.21 6.58 L 129.17 6.61 L 129.14 6.64 L 129.10 6.67 L 129.06 6.70 L 129.02 6.73 L 128.97 6.76 L 128.93 6.79 L 128.88 6.81 L 128.88 6.81 L 128.83 6.84 L 128.78 6.86 L 128.73 6.88 L 128.68 6.90 L 128.62 6.92 L 128.57 6.94 L 128.51 6.96 L 128.45 6.97 L 128.38 6.99 L 128.32 7.00 L 128.32 7.02 L 128.32 7.02 L 128.39 7.03 L 128.46 7.04 L 128.53 7.05 L 128.59 7.06 L 128.66 7.08 L 128.72 7.10 L 128.78 7.12 L 128.84 7.14 L 128.89 7.16 L 128.95 7.18 L 128.95 7.18 L 129.00 7.21 L 129.05 7.24 L 129.10 7.26 L 129.15 7.29 L 129.19 7.32 L 129.23 7.35 L 129.27 7.38 L 129.31 7.42 L 129.35 7.45 L 129.39 7.49 L 129.39 7.49 L 129.42 7.53 L 129.45 7.56 L 129.48 7.60 L 129.51 7.64 L 129.54 7.68 L 129.56 7.73 L 129.58 7.77 L 129.60 7.81 L 129.62 7.86 L 129.64 7.91 L 129.64 7.91 L 129.66 7.95 L 129.67 8.00 L 129.68 8.05 L 129.69 8.09 L 129.70 8.14 L 129.71 8.19 L 129.72 8.24 L 129.72 8.29 L 129.72 8.34 L 129.72 8.39 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 137.40 8.22 L 137.40 8.22 L 137.40 8.32 L 137.39 8.42 L 137.39 8.52 L 137.38 8.61 L 137.37 8.70 L 137.35 8.79 L 137.34 8.87 L 137.32 8.95 L 137.30 9.03 L 137.28 9.10 L 137.28 9.10 L 137.26 9.17 L 137.23 9.24 L 137.20 9.30 L 137.17 9.37 L 137.14 9.43 L 137.11 9.48 L 137.08 9.54 L 137.04 9.59 L 137.00 9.64 L 136.96 9.68 L 136.96 9.68 L 136.92 9.72 L 136.88 9.76 L 136.84 9.80 L 136.79 9.84 L 136.75 9.87 L 136.70 9.90 L 136.65 9.93 L 136.60 9.95 L 136.55 9.97 L 136.49 9.99 L 136.49 9.99 L 136.44 10.01 L 136.38 10.03 L 136.33 10.04 L 136.27 10.06 L 136.22 10.07 L 136.16 10.07 L 136.10 10.08 L 136.04 10.09 L 135.98 10.09 L 135.92 10.09 L 135.92 10.09 L 135.86 10.09 L 135.80 10.09 L 135.74 10.08 L 135.68 10.07 L 135.62 10.07 L 135.56 10.06 L 135.50 10.04 L 135.45 10.03 L 135.39 10.01 L 135.34 9.99 L 135.34 9.99 L 135.29 9.97 L 135.23 9.95 L 135.18 9.93 L 135.14 9.90 L 135.09 9.87 L 135.04 9.84 L 135.00 9.80 L 134.95 9.76 L 134.91 9.72 L 134.87 9.68 L 134.87 9.68 L 134.83 9.64 L 134.80 9.59 L 134.76 9.54 L 134.73 9.48 L 134.69 9.43 L 134.66 9.37 L 134.64 9.30 L 134.61 9.24 L 134.58 9.17 L 134.56 9.10 L 134.56 9.10 L 134.54 9.03 L 134.52 8.95 L 134.50 8.87 L 134.49 8.79 L 134.47 8.70 L 134.46 8.61 L 134.46 8.52 L 134.45 8.42 L 134.45 8.32 L 134.45 8.22 L 134.45 8.22 L 134.45 8.11 L 134.45 8.01 L 134.46 7.91 L 134.46 7.81 L 134.47 7.72 L 134.49 7.63 L 134.50 7.55 L 134.52 7.46 L 134.54 7.39 L 134.56 7.31 L 134.56 7.31 L 134.58 7.24 L 134.61 7.17 L 134.64 7.11 L 134.67 7.05 L 134.70 6.99 L 134.73 6.93 L 134.76 6.88 L 134.80 6.83 L 134.84 6.78 L 134.88 6.74 L 134.88 6.74 L 134.92 6.70 L 134.96 6.66 L 135.00 6.62 L 135.05 6.59 L 135.09 6.56 L 135.14 6.53 L 135.19 6.50 L 135.24 6.48 L 135.29 6.46 L 135.35 6.44 L 135.35 6.44 L 135.40 6.42 L 135.46 6.41 L 135.52 6.39 L 135.57 6.38 L 135.63 6.37 L 135.69 6.36 L 135.75 6.36 L 135.81 6.35 L 135.88 6.35 L 135.94 6.35 L 135.94 6.35 L 136.00 6.35 L 136.06 6.35 L 136.12 6.36 L 136.17 6.36 L 136.23 6.37 L 136.29 6.38 L 136.34 6.39 L 136.40 6.41 L 136.45 6.42 L 136.50 6.44 L 136.50 6.44 L 136.56 6.46 L 136.61 6.48 L 136.66 6.50 L 136.71 6.53 L 136.75 6.56 L 136.80 6.59 L 136.84 6.62 L 136.89 6.66 L 136.93 6.70 L 136.97 6.74 L 136.97 6.74 L 137.01 6.78 L 137.04 6.83 L 137.08 6.88 L 137.11 6.93 L 137.15 6.99 L 137.18 7.05 L 137.20 7.11 L 137.23 7.17 L 137.26 7.24 L 137.28 7.31 L 137.28 7.31 L 137.30 7.39 L 137.32 7.46 L 137.34 7.55 L 137.35 7.63 L 137.37 7.72 L 137.38 7.81 L 137.39 7.91 L 137.39 8.01 L 137.40 8.11 L 137.40 8.22 ZM 132.33 10.02 L 131.47 10.02 L 135.31 4.15 L 136.18 4.15 L 132.33 10.02 ZM 131.73 4.08 L 131.73 4.08 L 131.79 4.08 L 131.85 4.09 L 131.91 4.09 L 131.97 4.10 L 132.02 4.11 L 132.08 4.12 L 132.14 4.13 L 132.19 4.14 L 132.25 4.15 L 132.30 4.17 L 132.30 4.17 L 132.35 4.19 L 132.40 4.21 L 132.45 4.23 L 132.50 4.26 L 132.55 4.29 L 132.60 4.32 L 132.64 4.35 L 132.68 4.39 L 132.73 4.43 L 132.77 4.47 L 132.77 4.47 L 132.81 4.51 L 132.84 4.56 L 132.88 4.61 L 132.91 4.66 L 132.95 4.72 L 132.98 4.78 L 133.01 4.84 L 133.03 4.90 L 133.06 4.97 L 133.08 5.04 L 133.08 5.04 L 133.11 5.12 L 133.13 5.19 L 133.14 5.27 L 133.16 5.36 L 133.17 5.45 L 133.18 5.54 L 133.19 5.64 L 133.20 5.74 L 133.20 5.84 L 133.20 5.95 L 133.20 5.95 L 133.20 6.05 L 133.20 6.15 L 133.19 6.25 L 133.18 6.34 L 133.17 6.43 L 133.16 6.52 L 133.14 6.60 L 133.13 6.68 L 133.11 6.76 L 133.08 6.83 L 133.08 6.83 L 133.06 6.90 L 133.03 6.97 L 133.01 7.03 L 132.98 7.10 L 132.94 7.15 L 132.91 7.21 L 132.88 7.26 L 132.84 7.32 L 132.80 7.36 L 132.76 7.41 L 132.76 7.41 L 132.72 7.45 L 132.68 7.49 L 132.64 7.53 L 132.59 7.57 L 132.54 7.60 L 132.50 7.63 L 132.45 7.66 L 132.40 7.68 L 132.34 7.71 L 132.29 7.73 L 132.29 7.73 L 132.24 7.74 L 132.18 7.76 L 132.13 7.78 L 132.07 7.79 L 132.01 7.80 L 131.95 7.81 L 131.89 7.81 L 131.83 7.82 L 131.77 7.82 L 131.71 7.82 L 131.71 7.82 L 131.65 7.82 L 131.59 7.82 L 131.53 7.81 L 131.47 7.81 L 131.42 7.80 L 131.36 7.79 L 131.30 7.78 L 131.25 7.76 L 131.19 7.74 L 131.14 7.73 L 131.14 7.73 L 131.08 7.71 L 131.03 7.68 L 130.98 7.66 L 130.93 7.63 L 130.89 7.60 L 130.84 7.57 L 130.80 7.53 L 130.75 7.50 L 130.71 7.46 L 130.67 7.41 L 130.67 7.41 L 130.63 7.37 L 130.59 7.32 L 130.56 7.27 L 130.53 7.22 L 130.49 7.16 L 130.46 7.10 L 130.43 7.04 L 130.41 6.97 L 130.38 6.90 L 130.36 6.83 L 130.36 6.83 L 130.34 6.76 L 130.32 6.68 L 130.30 6.60 L 130.29 6.52 L 130.27 6.43 L 130.26 6.34 L 130.25 6.25 L 130.25 6.15 L 130.25 6.05 L 130.24 5.95 L 130.24 5.95 L 130.25 5.84 L 130.25 5.74 L 130.25 5.64 L 130.26 5.54 L 130.27 5.45 L 130.29 5.36 L 130.30 5.27 L 130.32 5.19 L 130.34 5.12 L 130.36 5.04 L 130.36 5.04 L 130.38 4.97 L 130.41 4.90 L 130.43 4.84 L 130.46 4.78 L 130.49 4.72 L 130.52 4.66 L 130.56 4.61 L 130.59 4.56 L 130.63 4.51 L 130.67 4.47 L 130.67 4.47 L 130.71 4.43 L 130.75 4.39 L 130.80 4.35 L 130.84 4.32 L 130.89 4.29 L 130.94 4.26 L 130.98 4.23 L 131.04 4.21 L 131.09 4.19 L 131.14 4.17 L 131.14 4.17 L 131.20 4.15 L 131.25 4.14 L 131.31 4.13 L 131.37 4.12 L 131.43 4.11 L 131.49 4.10 L 131.55 4.09 L 131.61 4.09 L 131.67 4.08 L 131.73 4.08 ZM 136.50 8.22 L 136.50 8.22 L 136.50 8.15 L 136.50 8.08 L 136.50 8.02 L 136.49 7.95 L 136.49 7.89 L 136.49 7.83 L 136.48 7.78 L 136.48 7.72 L 136.47 7.67 L 136.46 7.62 L 136.46 7.62 L 136.46 7.58 L 136.45 7.53 L 136.44 7.49 L 136.43 7.45 L 136.42 7.41 L 136.41 7.37 L 136.40 7.34 L 136.39 7.31 L 136.37 7.28 L 136.36 7.25 L 136.36 7.25 L 136.34 7.22 L 136.33 7.19 L 136.31 7.17 L 136.30 7.15 L 136.28 7.13 L 136.26 7.11 L 136.24 7.09 L 136.22 7.08 L 136.20 7.06 L 136.18 7.05 L 136.18 7.05 L 136.16 7.04 L 136.14 7.03 L 136.12 7.02 L 136.09 7.01 L 136.07 7.01 L 136.05 7.00 L 136.02 7.00 L 135.99 7.00 L 135.97 6.99 L 135.94 6.99 L 135.94 6.99 L 135.91 6.99 L 135.88 7.00 L 135.85 7.00 L 135.82 7.00 L 135.79 7.01 L 135.77 7.01 L 135.74 7.02 L 135.72 7.03 L 135.69 7.04 L 135.67 7.05 L 135.67 7.05 L 135.65 7.06 L 135.63 7.08 L 135.61 7.09 L 135.59 7.11 L 135.57 7.13 L 135.55 7.15 L 135.54 7.17 L 135.52 7.19 L 135.51 7.22 L 135.49 7.25 L 135.49 7.25 L 135.48 7.28 L 135.47 7.31 L 135.45 7.34 L 135.44 7.38 L 135.43 7.41 L 135.42 7.45 L 135.41 7.49 L 135.40 7.54 L 135.39 7.58 L 135.38 7.63 L 135.38 7.63 L 135.38 7.68 L 135.37 7.73 L 135.37 7.78 L 135.36 7.84 L 135.36 7.89 L 135.36 7.95 L 135.35 8.02 L 135.35 8.08 L 135.35 8.15 L 135.35 8.22 L 135.35 8.22 L 135.35 8.29 L 135.35 8.36 L 135.35 8.42 L 135.36 8.48 L 135.36 8.54 L 135.36 8.60 L 135.37 8.66 L 135.37 8.71 L 135.38 8.76 L 135.38 8.81 L 135.38 8.81 L 135.39 8.85 L 135.40 8.89 L 135.41 8.94 L 135.42 8.98 L 135.43 9.01 L 135.44 9.05 L 135.45 9.08 L 135.46 9.12 L 135.47 9.15 L 135.49 9.18 L 135.49 9.18 L 135.50 9.20 L 135.52 9.23 L 135.54 9.25 L 135.55 9.28 L 135.57 9.30 L 135.59 9.32 L 135.61 9.33 L 135.63 9.35 L 135.65 9.36 L 135.67 9.38 L 135.67 9.38 L 135.69 9.39 L 135.72 9.40 L 135.74 9.41 L 135.76 9.41 L 135.79 9.42 L 135.82 9.43 L 135.84 9.43 L 135.87 9.43 L 135.90 9.43 L 135.93 9.44 L 135.93 9.44 L 135.96 9.43 L 135.98 9.43 L 136.01 9.43 L 136.03 9.43 L 136.06 9.42 L 136.08 9.41 L 136.11 9.41 L 136.13 9.40 L 136.15 9.39 L 136.17 9.38 L 136.17 9.38 L 136.19 9.36 L 136.21 9.35 L 136.23 9.33 L 136.25 9.32 L 136.27 9.30 L 136.29 9.28 L 136.30 9.26 L 136.32 9.23 L 136.34 9.21 L 136.35 9.18 L 136.35 9.18 L 136.37 9.15 L 136.38 9.12 L 136.39 9.09 L 136.40 9.05 L 136.42 9.02 L 136.43 8.98 L 136.44 8.94 L 136.45 8.90 L 136.46 8.85 L 136.46 8.81 L 136.46 8.81 L 136.47 8.76 L 136.48 8.71 L 136.48 8.66 L 136.49 8.60 L 136.49 8.54 L 136.49 8.48 L 136.50 8.42 L 136.50 8.36 L 136.50 8.29 L 136.50 8.22 ZM 132.30 5.95 L 132.30 5.95 L 132.29 5.88 L 132.29 5.81 L 132.29 5.75 L 132.29 5.68 L 132.29 5.62 L 132.28 5.57 L 132.28 5.51 L 132.27 5.46 L 132.26 5.41 L 132.26 5.36 L 132.26 5.36 L 132.25 5.31 L 132.24 5.27 L 132.23 5.23 L 132.23 5.18 L 132.22 5.15 L 132.20 5.11 L 132.19 5.08 L 132.18 5.04 L 132.17 5.01 L 132.15 4.98 L 132.15 4.98 L 132.14 4.96 L 132.12 4.93 L 132.11 4.91 L 132.09 4.88 L 132.07 4.86 L 132.06 4.85 L 132.04 4.83 L 132.02 4.81 L 132.00 4.80 L 131.98 4.79 L 131.98 4.79 L 131.96 4.78 L 131.94 4.77 L 131.91 4.76 L 131.89 4.75 L 131.86 4.74 L 131.84 4.74 L 131.81 4.73 L 131.79 4.73 L 131.76 4.73 L 131.73 4.73 L 131.73 4.73 L 131.70 4.73 L 131.67 4.73 L 131.64 4.73 L 131.62 4.74 L 131.59 4.74 L 131.56 4.75 L 131.54 4.76 L 131.51 4.77 L 131.49 4.78 L 131.47 4.79 L 131.47 4.79 L 131.44 4.80 L 131.42 4.81 L 131.40 4.83 L 131.38 4.85 L 131.36 4.87 L 131.35 4.89 L 131.33 4.91 L 131.31 4.93 L 131.30 4.96 L 131.28 4.99 L 131.28 4.99 L 131.27 5.02 L 131.26 5.05 L 131.24 5.08 L 131.23 5.11 L 131.22 5.15 L 131.21 5.19 L 131.20 5.23 L 131.19 5.27 L 131.18 5.32 L 131.17 5.36 L 131.17 5.36 L 131.17 5.41 L 131.16 5.46 L 131.16 5.51 L 131.15 5.57 L 131.15 5.63 L 131.15 5.69 L 131.14 5.75 L 131.14 5.81 L 131.14 5.88 L 131.14 5.95 L 131.14 5.95 L 131.14 6.02 L 131.14 6.09 L 131.14 6.15 L 131.15 6.21 L 131.15 6.27 L 131.15 6.33 L 131.16 6.38 L 131.16 6.44 L 131.17 6.49 L 131.17 6.53 L 131.17 6.53 L 131.18 6.58 L 131.19 6.62 L 131.20 6.67 L 131.21 6.71 L 131.22 6.74 L 131.23 6.78 L 131.24 6.82 L 131.26 6.85 L 131.27 6.88 L 131.28 6.91 L 131.28 6.91 L 131.30 6.94 L 131.31 6.96 L 131.33 6.99 L 131.35 7.01 L 131.37 7.03 L 131.38 7.05 L 131.40 7.07 L 131.42 7.09 L 131.44 7.10 L 131.47 7.11 L 131.47 7.11 L 131.49 7.12 L 131.51 7.13 L 131.53 7.14 L 131.56 7.15 L 131.58 7.16 L 131.61 7.16 L 131.64 7.17 L 131.67 7.17 L 131.69 7.17 L 131.72 7.17 L 131.72 7.17 L 131.75 7.17 L 131.78 7.17 L 131.81 7.17 L 131.83 7.16 L 131.86 7.16 L 131.88 7.15 L 131.90 7.14 L 131.93 7.13 L 131.95 7.12 L 131.97 7.11 L 131.97 7.11 L 131.99 7.10 L 132.01 7.09 L 132.03 7.07 L 132.05 7.05 L 132.07 7.03 L 132.09 7.01 L 132.10 6.99 L 132.12 6.97 L 132.13 6.94 L 132.15 6.91 L 132.15 6.91 L 132.16 6.88 L 132.18 6.85 L 132.19 6.82 L 132.20 6.79 L 132.21 6.75 L 132.22 6.71 L 132.23 6.67 L 132.24 6.63 L 132.25 6.58 L 132.26 6.54 L 132.26 6.54 L 132.26 6.49 L 132.27 6.44 L 132.28 6.39 L 132.28 6.33 L 132.29 6.27 L 132.29 6.21 L 132.29 6.15 L 132.29 6.09 L 132.29 6.02 L 132.30 5.95 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path></g></g>
+</svg></td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Bolt Lightning" role="img" viewbox="0 0 384 512" style="height:1em;width:0.75em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Bolt Lightning
+</title>
+<path d="M0 256L28.5 28c2-16 15.6-28 31.8-28H228.9c15 0 27.1 12.1 27.1 27.1c0 3.2-.6 6.5-1.7 9.5L208 160H347.3c20.2 0 36.7 16.4 36.7 36.7c0 7.4-2.2 14.6-6.4 20.7l-192.2 281c-5.9 8.6-15.6 13.7-25.9 13.7h-2.9c-15.7 0-28.5-12.8-28.5-28.5c0-2.3 .3-4.6 .9-6.9L176 288H32c-17.7 0-32-14.3-32-32z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="fuel_type">Electricity</td>
+<td class="gt_row gt_left" headers="pct_fuel"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="74.54" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><path d="M 63.35 10.02 L 63.35 9.15 L 64.81 9.15 L 64.81 5.15 L 63.40 6.03 L 63.40 5.10 L 64.87 4.15 L 65.98 4.15 L 65.98 9.15 L 67.33 9.15 L 67.33 10.02 L 63.35 10.02 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 71.99 6.99 L 71.99 6.99 L 71.99 7.30 L 71.97 7.59 L 71.94 7.86 L 71.90 8.12 L 71.85 8.36 L 71.79 8.58 L 71.71 8.79 L 71.63 8.99 L 71.53 9.17 L 71.42 9.33 L 71.42 9.33 L 71.30 9.48 L 71.18 9.61 L 71.04 9.73 L 70.89 9.83 L 70.73 9.91 L 70.57 9.98 L 70.39 10.04 L 70.20 10.08 L 70.01 10.10 L 69.80 10.11 L 69.80 10.11 L 69.73 10.11 L 69.65 10.10 L 69.58 10.10 L 69.51 10.09 L 69.44 10.09 L 69.37 10.08 L 69.31 10.07 L 69.24 10.06 L 69.18 10.04 L 69.12 10.03 L 69.12 10.03 L 69.06 10.01 L 69.00 9.99 L 68.94 9.97 L 68.89 9.95 L 68.84 9.93 L 68.78 9.90 L 68.73 9.87 L 68.69 9.84 L 68.64 9.81 L 68.59 9.78 L 68.59 9.78 L 68.55 9.75 L 68.51 9.71 L 68.46 9.67 L 68.42 9.63 L 68.38 9.59 L 68.35 9.55 L 68.31 9.50 L 68.28 9.45 L 68.24 9.40 L 68.21 9.35 L 68.21 9.35 L 68.18 9.30 L 68.15 9.24 L 68.12 9.19 L 68.10 9.13 L 68.07 9.06 L 68.05 9.00 L 68.02 8.94 L 68.00 8.87 L 67.98 8.80 L 67.96 8.73 L 69.06 8.57 L 69.06 8.57 L 69.08 8.63 L 69.10 8.69 L 69.12 8.75 L 69.15 8.80 L 69.17 8.84 L 69.20 8.89 L 69.23 8.93 L 69.26 8.97 L 69.30 9.00 L 69.33 9.04 L 69.33 9.04 L 69.37 9.06 L 69.42 9.09 L 69.46 9.11 L 69.50 9.13 L 69.55 9.15 L 69.60 9.16 L 69.65 9.17 L 69.70 9.18 L 69.76 9.18 L 69.81 9.19 L 69.81 9.19 L 69.86 9.18 L 69.91 9.18 L 69.95 9.18 L 70.00 9.17 L 70.04 9.16 L 70.08 9.14 L 70.12 9.13 L 70.16 9.11 L 70.20 9.09 L 70.24 9.07 L 70.24 9.07 L 70.28 9.05 L 70.31 9.02 L 70.35 8.99 L 70.38 8.96 L 70.41 8.93 L 70.44 8.90 L 70.48 8.86 L 70.50 8.82 L 70.53 8.78 L 70.56 8.73 L 70.56 8.73 L 70.59 8.68 L 70.61 8.63 L 70.63 8.58 L 70.66 8.53 L 70.68 8.47 L 70.70 8.41 L 70.72 8.35 L 70.73 8.29 L 70.75 8.22 L 70.76 8.15 L 70.76 8.15 L 70.78 8.08 L 70.79 8.00 L 70.80 7.93 L 70.81 7.85 L 70.82 7.77 L 70.83 7.68 L 70.83 7.59 L 70.84 7.50 L 70.84 7.41 L 70.84 7.32 L 70.84 7.32 L 70.83 7.35 L 70.81 7.38 L 70.79 7.41 L 70.77 7.44 L 70.75 7.47 L 70.72 7.50 L 70.70 7.53 L 70.68 7.55 L 70.65 7.58 L 70.62 7.61 L 70.62 7.61 L 70.59 7.63 L 70.57 7.65 L 70.54 7.68 L 70.51 7.70 L 70.48 7.72 L 70.44 7.74 L 70.41 7.76 L 70.38 7.78 L 70.34 7.80 L 70.31 7.81 L 70.31 7.81 L 70.28 7.83 L 70.24 7.85 L 70.21 7.86 L 70.17 7.87 L 70.13 7.89 L 70.10 7.90 L 70.06 7.91 L 70.02 7.92 L 69.98 7.93 L 69.94 7.94 L 69.94 7.94 L 69.90 7.95 L 69.86 7.96 L 69.83 7.96 L 69.79 7.97 L 69.75 7.97 L 69.71 7.98 L 69.67 7.98 L 69.63 7.98 L 69.59 7.98 L 69.55 7.98 L 69.55 7.98 L 69.47 7.98 L 69.40 7.98 L 69.32 7.97 L 69.25 7.96 L 69.18 7.95 L 69.11 7.94 L 69.05 7.92 L 68.98 7.90 L 68.91 7.88 L 68.85 7.85 L 68.85 7.85 L 68.79 7.82 L 68.73 7.79 L 68.67 7.76 L 68.62 7.72 L 68.56 7.68 L 68.51 7.64 L 68.46 7.60 L 68.41 7.56 L 68.36 7.51 L 68.32 7.46 L 68.32 7.46 L 68.27 7.41 L 68.23 7.35 L 68.19 7.30 L 68.16 7.24 L 68.12 7.18 L 68.09 7.12 L 68.06 7.05 L 68.03 6.99 L 68.00 6.92 L 67.98 6.85 L 67.98 6.85 L 67.95 6.77 L 67.93 6.70 L 67.92 6.62 L 67.90 6.54 L 67.89 6.46 L 67.88 6.38 L 67.87 6.29 L 67.86 6.21 L 67.86 6.12 L 67.86 6.03 L 67.86 6.03 L 67.86 5.94 L 67.86 5.85 L 67.87 5.76 L 67.88 5.67 L 67.89 5.59 L 67.91 5.51 L 67.93 5.43 L 67.95 5.35 L 67.97 5.27 L 68.00 5.20 L 68.00 5.20 L 68.03 5.12 L 68.06 5.05 L 68.09 4.99 L 68.13 4.92 L 68.17 4.86 L 68.21 4.80 L 68.25 4.74 L 68.30 4.68 L 68.35 4.63 L 68.40 4.58 L 68.40 4.58 L 68.45 4.53 L 68.51 4.48 L 68.57 4.44 L 68.63 4.40 L 68.69 4.36 L 68.76 4.32 L 68.83 4.28 L 68.90 4.25 L 68.97 4.22 L 69.04 4.20 L 69.04 4.20 L 69.12 4.17 L 69.20 4.15 L 69.28 4.13 L 69.37 4.11 L 69.45 4.10 L 69.54 4.08 L 69.63 4.07 L 69.72 4.07 L 69.81 4.06 L 69.91 4.06 L 69.91 4.06 L 70.01 4.06 L 70.11 4.07 L 70.20 4.08 L 70.30 4.09 L 70.39 4.11 L 70.48 4.13 L 70.56 4.15 L 70.65 4.17 L 70.73 4.20 L 70.81 4.24 L 70.81 4.24 L 70.88 4.27 L 70.96 4.31 L 71.03 4.36 L 71.10 4.41 L 71.17 4.46 L 71.23 4.51 L 71.29 4.57 L 71.35 4.63 L 71.41 4.70 L 71.46 4.77 L 71.46 4.77 L 71.51 4.85 L 71.56 4.92 L 71.61 5.00 L 71.65 5.09 L 71.69 5.18 L 71.73 5.27 L 71.76 5.37 L 71.80 5.47 L 71.83 5.58 L 71.86 5.68 L 71.86 5.68 L 71.88 5.80 L 71.91 5.91 L 71.93 6.03 L 71.94 6.16 L 71.96 6.29 L 71.97 6.42 L 71.98 6.56 L 71.99 6.70 L 71.99 6.84 L 71.99 6.99 ZM 70.76 6.17 L 70.76 6.17 L 70.76 6.12 L 70.75 6.07 L 70.75 6.02 L 70.75 5.98 L 70.74 5.93 L 70.73 5.88 L 70.73 5.84 L 70.72 5.79 L 70.71 5.75 L 70.70 5.70 L 70.70 5.70 L 70.69 5.66 L 70.67 5.62 L 70.66 5.58 L 70.64 5.54 L 70.63 5.50 L 70.61 5.46 L 70.59 5.43 L 70.57 5.39 L 70.55 5.36 L 70.53 5.33 L 70.53 5.33 L 70.51 5.29 L 70.48 5.26 L 70.46 5.23 L 70.43 5.21 L 70.41 5.18 L 70.38 5.16 L 70.35 5.13 L 70.32 5.11 L 70.29 5.09 L 70.26 5.07 L 70.26 5.07 L 70.22 5.05 L 70.19 5.04 L 70.15 5.02 L 70.12 5.01 L 70.08 5.00 L 70.04 4.99 L 70.00 4.99 L 69.96 4.98 L 69.92 4.98 L 69.88 4.98 L 69.88 4.98 L 69.84 4.98 L 69.80 4.98 L 69.77 4.99 L 69.73 4.99 L 69.70 5.00 L 69.66 5.01 L 69.63 5.02 L 69.59 5.03 L 69.56 5.04 L 69.53 5.05 L 69.53 5.05 L 69.50 5.07 L 69.47 5.09 L 69.44 5.10 L 69.41 5.12 L 69.39 5.14 L 69.36 5.16 L 69.34 5.19 L 69.31 5.21 L 69.29 5.24 L 69.27 5.26 L 69.27 5.26 L 69.25 5.29 L 69.23 5.32 L 69.21 5.35 L 69.19 5.38 L 69.17 5.42 L 69.16 5.45 L 69.14 5.48 L 69.13 5.52 L 69.11 5.56 L 69.10 5.60 L 69.10 5.60 L 69.09 5.64 L 69.08 5.68 L 69.07 5.72 L 69.07 5.76 L 69.06 5.80 L 69.06 5.85 L 69.05 5.90 L 69.05 5.94 L 69.05 5.99 L 69.05 6.04 L 69.05 6.04 L 69.05 6.08 L 69.05 6.13 L 69.05 6.17 L 69.06 6.22 L 69.06 6.26 L 69.07 6.30 L 69.07 6.35 L 69.08 6.39 L 69.09 6.43 L 69.10 6.47 L 69.10 6.47 L 69.11 6.51 L 69.12 6.54 L 69.14 6.58 L 69.15 6.62 L 69.17 6.65 L 69.18 6.68 L 69.20 6.72 L 69.22 6.75 L 69.24 6.78 L 69.26 6.81 L 69.26 6.81 L 69.28 6.84 L 69.30 6.86 L 69.33 6.89 L 69.35 6.91 L 69.38 6.94 L 69.40 6.96 L 69.43 6.98 L 69.46 7.00 L 69.49 7.02 L 69.52 7.03 L 69.52 7.03 L 69.55 7.05 L 69.59 7.06 L 69.62 7.07 L 69.66 7.09 L 69.69 7.09 L 69.73 7.10 L 69.77 7.11 L 69.80 7.11 L 69.84 7.11 L 69.88 7.11 L 69.88 7.11 L 69.92 7.11 L 69.95 7.11 L 69.98 7.11 L 70.01 7.10 L 70.05 7.10 L 70.08 7.09 L 70.11 7.09 L 70.14 7.08 L 70.17 7.07 L 70.20 7.06 L 70.20 7.06 L 70.23 7.04 L 70.26 7.03 L 70.29 7.02 L 70.32 7.00 L 70.35 6.98 L 70.38 6.96 L 70.40 6.95 L 70.43 6.92 L 70.46 6.90 L 70.48 6.88 L 70.48 6.88 L 70.51 6.86 L 70.53 6.83 L 70.55 6.81 L 70.57 6.78 L 70.59 6.75 L 70.61 6.72 L 70.63 6.69 L 70.65 6.66 L 70.67 6.62 L 70.68 6.59 L 70.68 6.59 L 70.70 6.55 L 70.71 6.51 L 70.72 6.48 L 70.73 6.44 L 70.74 6.39 L 70.74 6.35 L 70.75 6.31 L 70.75 6.26 L 70.76 6.22 L 70.76 6.17 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 79.68 8.22 L 79.68 8.22 L 79.67 8.32 L 79.67 8.42 L 79.66 8.52 L 79.66 8.61 L 79.65 8.70 L 79.63 8.79 L 79.62 8.87 L 79.60 8.95 L 79.58 9.03 L 79.56 9.10 L 79.56 9.10 L 79.53 9.17 L 79.51 9.24 L 79.48 9.30 L 79.45 9.37 L 79.42 9.43 L 79.39 9.48 L 79.35 9.54 L 79.32 9.59 L 79.28 9.64 L 79.24 9.68 L 79.24 9.68 L 79.20 9.72 L 79.16 9.76 L 79.12 9.80 L 79.07 9.84 L 79.02 9.87 L 78.98 9.90 L 78.93 9.93 L 78.88 9.95 L 78.82 9.97 L 78.77 9.99 L 78.77 9.99 L 78.72 10.01 L 78.66 10.03 L 78.61 10.04 L 78.55 10.06 L 78.49 10.07 L 78.44 10.07 L 78.38 10.08 L 78.32 10.09 L 78.26 10.09 L 78.20 10.09 L 78.20 10.09 L 78.14 10.09 L 78.08 10.09 L 78.02 10.08 L 77.96 10.07 L 77.90 10.07 L 77.84 10.06 L 77.78 10.04 L 77.73 10.03 L 77.67 10.01 L 77.62 9.99 L 77.62 9.99 L 77.56 9.97 L 77.51 9.95 L 77.46 9.93 L 77.41 9.90 L 77.37 9.87 L 77.32 9.84 L 77.28 9.80 L 77.23 9.76 L 77.19 9.72 L 77.15 9.68 L 77.15 9.68 L 77.11 9.64 L 77.07 9.59 L 77.04 9.54 L 77.01 9.48 L 76.97 9.43 L 76.94 9.37 L 76.91 9.30 L 76.89 9.24 L 76.86 9.17 L 76.84 9.10 L 76.84 9.10 L 76.82 9.03 L 76.80 8.95 L 76.78 8.87 L 76.76 8.79 L 76.75 8.70 L 76.74 8.61 L 76.73 8.52 L 76.73 8.42 L 76.73 8.32 L 76.72 8.22 L 76.72 8.22 L 76.73 8.11 L 76.73 8.01 L 76.73 7.91 L 76.74 7.81 L 76.75 7.72 L 76.76 7.63 L 76.78 7.55 L 76.80 7.46 L 76.82 7.39 L 76.84 7.31 L 76.84 7.31 L 76.86 7.24 L 76.89 7.17 L 76.91 7.11 L 76.94 7.05 L 76.97 6.99 L 77.01 6.93 L 77.04 6.88 L 77.08 6.83 L 77.11 6.78 L 77.15 6.74 L 77.15 6.74 L 77.19 6.70 L 77.24 6.66 L 77.28 6.62 L 77.33 6.59 L 77.37 6.56 L 77.42 6.53 L 77.47 6.50 L 77.52 6.48 L 77.57 6.46 L 77.62 6.44 L 77.62 6.44 L 77.68 6.42 L 77.74 6.41 L 77.79 6.39 L 77.85 6.38 L 77.91 6.37 L 77.97 6.36 L 78.03 6.36 L 78.09 6.35 L 78.15 6.35 L 78.22 6.35 L 78.22 6.35 L 78.28 6.35 L 78.34 6.35 L 78.39 6.36 L 78.45 6.36 L 78.51 6.37 L 78.56 6.38 L 78.62 6.39 L 78.68 6.41 L 78.73 6.42 L 78.78 6.44 L 78.78 6.44 L 78.84 6.46 L 78.89 6.48 L 78.94 6.50 L 78.99 6.53 L 79.03 6.56 L 79.08 6.59 L 79.12 6.62 L 79.16 6.66 L 79.21 6.70 L 79.25 6.74 L 79.25 6.74 L 79.29 6.78 L 79.32 6.83 L 79.36 6.88 L 79.39 6.93 L 79.42 6.99 L 79.45 7.05 L 79.48 7.11 L 79.51 7.17 L 79.54 7.24 L 79.56 7.31 L 79.56 7.31 L 79.58 7.39 L 79.60 7.46 L 79.62 7.55 L 79.63 7.63 L 79.65 7.72 L 79.66 7.81 L 79.66 7.91 L 79.67 8.01 L 79.67 8.11 L 79.68 8.22 ZM 74.61 10.02 L 73.75 10.02 L 77.59 4.15 L 78.46 4.15 L 74.61 10.02 ZM 74.01 4.08 L 74.01 4.08 L 74.07 4.08 L 74.13 4.09 L 74.19 4.09 L 74.25 4.10 L 74.30 4.11 L 74.36 4.12 L 74.41 4.13 L 74.47 4.14 L 74.52 4.15 L 74.58 4.17 L 74.58 4.17 L 74.63 4.19 L 74.68 4.21 L 74.73 4.23 L 74.78 4.26 L 74.83 4.29 L 74.87 4.32 L 74.92 4.35 L 74.96 4.39 L 75.00 4.43 L 75.04 4.47 L 75.04 4.47 L 75.08 4.51 L 75.12 4.56 L 75.16 4.61 L 75.19 4.66 L 75.22 4.72 L 75.25 4.78 L 75.28 4.84 L 75.31 4.90 L 75.34 4.97 L 75.36 5.04 L 75.36 5.04 L 75.38 5.12 L 75.40 5.19 L 75.42 5.27 L 75.44 5.36 L 75.45 5.45 L 75.46 5.54 L 75.47 5.64 L 75.47 5.74 L 75.48 5.84 L 75.48 5.95 L 75.48 5.95 L 75.48 6.05 L 75.47 6.15 L 75.47 6.25 L 75.46 6.34 L 75.45 6.43 L 75.44 6.52 L 75.42 6.60 L 75.40 6.68 L 75.38 6.76 L 75.36 6.83 L 75.36 6.83 L 75.34 6.90 L 75.31 6.97 L 75.28 7.03 L 75.25 7.10 L 75.22 7.15 L 75.19 7.21 L 75.16 7.26 L 75.12 7.32 L 75.08 7.36 L 75.04 7.41 L 75.04 7.41 L 75.00 7.45 L 74.96 7.49 L 74.91 7.53 L 74.87 7.57 L 74.82 7.60 L 74.77 7.63 L 74.73 7.66 L 74.68 7.68 L 74.62 7.71 L 74.57 7.73 L 74.57 7.73 L 74.51 7.74 L 74.46 7.76 L 74.40 7.78 L 74.35 7.79 L 74.29 7.80 L 74.23 7.81 L 74.17 7.81 L 74.11 7.82 L 74.05 7.82 L 73.99 7.82 L 73.99 7.82 L 73.93 7.82 L 73.87 7.82 L 73.81 7.81 L 73.75 7.81 L 73.69 7.80 L 73.64 7.79 L 73.58 7.78 L 73.52 7.76 L 73.47 7.74 L 73.42 7.73 L 73.42 7.73 L 73.36 7.71 L 73.31 7.68 L 73.26 7.66 L 73.21 7.63 L 73.16 7.60 L 73.12 7.57 L 73.07 7.53 L 73.03 7.50 L 72.99 7.46 L 72.95 7.41 L 72.95 7.41 L 72.91 7.37 L 72.87 7.32 L 72.84 7.27 L 72.80 7.22 L 72.77 7.16 L 72.74 7.10 L 72.71 7.04 L 72.69 6.97 L 72.66 6.90 L 72.64 6.83 L 72.64 6.83 L 72.61 6.76 L 72.60 6.68 L 72.58 6.60 L 72.56 6.52 L 72.55 6.43 L 72.54 6.34 L 72.53 6.25 L 72.53 6.15 L 72.52 6.05 L 72.52 5.95 L 72.52 5.95 L 72.52 5.84 L 72.53 5.74 L 72.53 5.64 L 72.54 5.54 L 72.55 5.45 L 72.56 5.36 L 72.58 5.27 L 72.60 5.19 L 72.61 5.12 L 72.64 5.04 L 72.64 5.04 L 72.66 4.97 L 72.68 4.90 L 72.71 4.84 L 72.74 4.78 L 72.77 4.72 L 72.80 4.66 L 72.84 4.61 L 72.87 4.56 L 72.91 4.51 L 72.95 4.47 L 72.95 4.47 L 72.99 4.43 L 73.03 4.39 L 73.07 4.35 L 73.12 4.32 L 73.17 4.29 L 73.21 4.26 L 73.26 4.23 L 73.31 4.21 L 73.37 4.19 L 73.42 4.17 L 73.42 4.17 L 73.47 4.15 L 73.53 4.14 L 73.59 4.13 L 73.65 4.12 L 73.70 4.11 L 73.76 4.10 L 73.82 4.09 L 73.89 4.09 L 73.95 4.08 L 74.01 4.08 ZM 78.78 8.22 L 78.78 8.22 L 78.78 8.15 L 78.78 8.08 L 78.78 8.02 L 78.77 7.95 L 78.77 7.89 L 78.77 7.83 L 78.76 7.78 L 78.76 7.72 L 78.75 7.67 L 78.74 7.62 L 78.74 7.62 L 78.73 7.58 L 78.73 7.53 L 78.72 7.49 L 78.71 7.45 L 78.70 7.41 L 78.69 7.37 L 78.68 7.34 L 78.66 7.31 L 78.65 7.28 L 78.64 7.25 L 78.64 7.25 L 78.62 7.22 L 78.61 7.19 L 78.59 7.17 L 78.58 7.15 L 78.56 7.13 L 78.54 7.11 L 78.52 7.09 L 78.50 7.08 L 78.48 7.06 L 78.46 7.05 L 78.46 7.05 L 78.44 7.04 L 78.42 7.03 L 78.40 7.02 L 78.37 7.01 L 78.35 7.01 L 78.32 7.00 L 78.30 7.00 L 78.27 7.00 L 78.24 6.99 L 78.22 6.99 L 78.22 6.99 L 78.19 6.99 L 78.16 7.00 L 78.13 7.00 L 78.10 7.00 L 78.07 7.01 L 78.05 7.01 L 78.02 7.02 L 78.00 7.03 L 77.97 7.04 L 77.95 7.05 L 77.95 7.05 L 77.93 7.06 L 77.91 7.08 L 77.89 7.09 L 77.87 7.11 L 77.85 7.13 L 77.83 7.15 L 77.82 7.17 L 77.80 7.19 L 77.79 7.22 L 77.77 7.25 L 77.77 7.25 L 77.76 7.28 L 77.74 7.31 L 77.73 7.34 L 77.72 7.38 L 77.71 7.41 L 77.70 7.45 L 77.69 7.49 L 77.68 7.54 L 77.67 7.58 L 77.66 7.63 L 77.66 7.63 L 77.66 7.68 L 77.65 7.73 L 77.65 7.78 L 77.64 7.84 L 77.64 7.89 L 77.63 7.95 L 77.63 8.02 L 77.63 8.08 L 77.63 8.15 L 77.63 8.22 L 77.63 8.22 L 77.63 8.29 L 77.63 8.36 L 77.63 8.42 L 77.63 8.48 L 77.64 8.54 L 77.64 8.60 L 77.65 8.66 L 77.65 8.71 L 77.66 8.76 L 77.66 8.81 L 77.66 8.81 L 77.67 8.85 L 77.68 8.89 L 77.69 8.94 L 77.69 8.98 L 77.70 9.01 L 77.72 9.05 L 77.73 9.08 L 77.74 9.12 L 77.75 9.15 L 77.77 9.18 L 77.77 9.18 L 77.78 9.20 L 77.80 9.23 L 77.81 9.25 L 77.83 9.28 L 77.85 9.30 L 77.87 9.32 L 77.89 9.33 L 77.91 9.35 L 77.93 9.36 L 77.95 9.38 L 77.95 9.38 L 77.97 9.39 L 77.99 9.40 L 78.02 9.41 L 78.04 9.41 L 78.07 9.42 L 78.09 9.43 L 78.12 9.43 L 78.15 9.43 L 78.18 9.43 L 78.21 9.44 L 78.21 9.44 L 78.24 9.43 L 78.26 9.43 L 78.29 9.43 L 78.31 9.43 L 78.34 9.42 L 78.36 9.41 L 78.38 9.41 L 78.41 9.40 L 78.43 9.39 L 78.45 9.38 L 78.45 9.38 L 78.47 9.36 L 78.49 9.35 L 78.51 9.33 L 78.53 9.32 L 78.55 9.30 L 78.57 9.28 L 78.58 9.26 L 78.60 9.23 L 78.61 9.21 L 78.63 9.18 L 78.63 9.18 L 78.64 9.15 L 78.66 9.12 L 78.67 9.09 L 78.68 9.05 L 78.69 9.02 L 78.71 8.98 L 78.72 8.94 L 78.73 8.90 L 78.73 8.85 L 78.74 8.81 L 78.74 8.81 L 78.75 8.76 L 78.76 8.71 L 78.76 8.66 L 78.77 8.60 L 78.77 8.54 L 78.77 8.48 L 78.78 8.42 L 78.78 8.36 L 78.78 8.29 L 78.78 8.22 ZM 74.57 5.95 L 74.57 5.95 L 74.57 5.88 L 74.57 5.81 L 74.57 5.75 L 74.57 5.68 L 74.56 5.62 L 74.56 5.57 L 74.56 5.51 L 74.55 5.46 L 74.54 5.41 L 74.54 5.36 L 74.54 5.36 L 74.53 5.31 L 74.52 5.27 L 74.51 5.23 L 74.50 5.18 L 74.49 5.15 L 74.48 5.11 L 74.47 5.08 L 74.46 5.04 L 74.45 5.01 L 74.43 4.98 L 74.43 4.98 L 74.42 4.96 L 74.40 4.93 L 74.39 4.91 L 74.37 4.88 L 74.35 4.86 L 74.33 4.85 L 74.32 4.83 L 74.30 4.81 L 74.28 4.80 L 74.26 4.79 L 74.26 4.79 L 74.24 4.78 L 74.21 4.77 L 74.19 4.76 L 74.17 4.75 L 74.14 4.74 L 74.12 4.74 L 74.09 4.73 L 74.07 4.73 L 74.04 4.73 L 74.01 4.73 L 74.01 4.73 L 73.98 4.73 L 73.95 4.73 L 73.92 4.73 L 73.89 4.74 L 73.87 4.74 L 73.84 4.75 L 73.82 4.76 L 73.79 4.77 L 73.77 4.78 L 73.74 4.79 L 73.74 4.79 L 73.72 4.80 L 73.70 4.81 L 73.68 4.83 L 73.66 4.85 L 73.64 4.87 L 73.62 4.89 L 73.61 4.91 L 73.59 4.93 L 73.58 4.96 L 73.56 4.99 L 73.56 4.99 L 73.55 5.02 L 73.53 5.05 L 73.52 5.08 L 73.51 5.11 L 73.50 5.15 L 73.49 5.19 L 73.48 5.23 L 73.47 5.27 L 73.46 5.32 L 73.45 5.36 L 73.45 5.36 L 73.45 5.41 L 73.44 5.46 L 73.44 5.51 L 73.43 5.57 L 73.43 5.63 L 73.42 5.69 L 73.42 5.75 L 73.42 5.81 L 73.42 5.88 L 73.42 5.95 L 73.42 5.95 L 73.42 6.02 L 73.42 6.09 L 73.42 6.15 L 73.42 6.21 L 73.43 6.27 L 73.43 6.33 L 73.44 6.38 L 73.44 6.44 L 73.45 6.49 L 73.45 6.53 L 73.45 6.53 L 73.46 6.58 L 73.47 6.62 L 73.48 6.67 L 73.49 6.71 L 73.50 6.74 L 73.51 6.78 L 73.52 6.82 L 73.53 6.85 L 73.55 6.88 L 73.56 6.91 L 73.56 6.91 L 73.58 6.94 L 73.59 6.96 L 73.61 6.99 L 73.63 7.01 L 73.64 7.03 L 73.66 7.05 L 73.68 7.07 L 73.70 7.09 L 73.72 7.10 L 73.74 7.11 L 73.74 7.11 L 73.77 7.12 L 73.79 7.13 L 73.81 7.14 L 73.84 7.15 L 73.86 7.16 L 73.89 7.16 L 73.92 7.17 L 73.94 7.17 L 73.97 7.17 L 74.00 7.17 L 74.00 7.17 L 74.03 7.17 L 74.06 7.17 L 74.08 7.17 L 74.11 7.16 L 74.14 7.16 L 74.16 7.15 L 74.18 7.14 L 74.21 7.13 L 74.23 7.12 L 74.25 7.11 L 74.25 7.11 L 74.27 7.10 L 74.29 7.09 L 74.31 7.07 L 74.33 7.05 L 74.35 7.03 L 74.37 7.01 L 74.38 6.99 L 74.40 6.97 L 74.41 6.94 L 74.43 6.91 L 74.43 6.91 L 74.44 6.88 L 74.46 6.85 L 74.47 6.82 L 74.48 6.79 L 74.49 6.75 L 74.50 6.71 L 74.51 6.67 L 74.52 6.63 L 74.53 6.58 L 74.54 6.54 L 74.54 6.54 L 74.54 6.49 L 74.55 6.44 L 74.56 6.39 L 74.56 6.33 L 74.56 6.27 L 74.57 6.21 L 74.57 6.15 L 74.57 6.09 L 74.57 6.02 L 74.57 5.95 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path></g></g>
+</svg></td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" headers="fa_icon"><span style="white-space:nowrap;">
+<svg aria-label="Leaf" role="img" viewbox="0 0 512 512" style="height:1em;width:1em;vertical-align:-0.125em;margin-left:auto;margin-right:auto;font-size:inherit;fill:currentColor;overflow:visible;position:relative;">
+<title>
+Leaf
+</title>
+<path d="M272 96c-78.6 0-145.1 51.5-167.7 122.5c33.6-17 71.5-26.5 111.7-26.5h88c8.8 0 16 7.2 16 16s-7.2 16-16 16H288 216s0 0 0 0c-16.6 0-32.7 1.9-48.3 5.4c-25.9 5.9-49.9 16.4-71.4 30.7c0 0 0 0 0 0C38.3 298.8 0 364.9 0 440v16c0 13.3 10.7 24 24 24s24-10.7 24-24V440c0-48.7 20.7-92.5 53.8-123.2C121.6 392.3 190.3 448 272 448l1 0c132.1-.7 239-130.9 239-291.4c0-42.6-7.5-83.1-21.1-119.6c-2.6-6.9-12.7-6.6-16.2-.1C455.9 72.1 418.7 96 376 96L272 96z"></path>
+</svg>
+</span></td>
+<td class="gt_row gt_left" headers="fuel_type">Other</td>
+<td class="gt_row gt_left" headers="pct_fuel"><svg xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="198.43pt" height="14.17pt" viewbox="0 0 198.43 14.17">
+<g class="svglite"><defs>
+<style type="text/css">    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {      fill: none;      stroke: #000000;      stroke-linecap: round;      stroke-linejoin: round;      stroke-miterlimit: 10.00;    }    .svglite text {      white-space: pre;    }    .svglite g.glyphgroup path {      fill: inherit;      stroke: none;    }  </style>
+</defs><rect width="100%" height="100%" style="stroke: none; fill: none;"></rect><defs> <clippath id="cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw=="> <rect x="0.00" y="0.00" width="198.43" height="14.17"></rect> </clippath></defs><g clip-path="url(#cpMC4wMHwxOTguNDN8MC4wMHwxNC4xNw==)"><rect x="8.78" y="0.89" width="21.07" height="12.40" style="stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #40A832;"></rect><line x1="8.78" y1="14.17" x2="8.78" y2="0.0000000000000018" style="stroke-width: 1.07; stroke-linecap: butt;"></line><path d="M 19.55 8.07 L 19.55 8.07 L 19.55 8.16 L 19.55 8.24 L 19.54 8.33 L 19.53 8.41 L 19.52 8.49 L 19.50 8.57 L 19.48 8.65 L 19.46 8.73 L 19.44 8.81 L 19.41 8.89 L 19.41 8.89 L 19.38 8.96 L 19.35 9.03 L 19.32 9.10 L 19.28 9.17 L 19.24 9.23 L 19.20 9.30 L 19.15 9.36 L 19.10 9.42 L 19.05 9.48 L 19.00 9.53 L 19.00 9.53 L 18.94 9.58 L 18.88 9.63 L 18.82 9.68 L 18.76 9.73 L 18.69 9.77 L 18.62 9.81 L 18.55 9.85 L 18.47 9.89 L 18.40 9.92 L 18.32 9.96 L 18.32 9.96 L 18.23 9.98 L 18.15 10.01 L 18.06 10.03 L 17.97 10.05 L 17.88 10.07 L 17.78 10.08 L 17.69 10.09 L 17.59 10.10 L 17.48 10.10 L 17.38 10.11 L 17.38 10.11 L 17.28 10.11 L 17.19 10.10 L 17.09 10.10 L 17.00 10.09 L 16.92 10.08 L 16.83 10.06 L 16.75 10.05 L 16.67 10.03 L 16.59 10.01 L 16.52 9.99 L 16.52 9.99 L 16.45 9.96 L 16.38 9.94 L 16.31 9.91 L 16.24 9.88 L 16.18 9.85 L 16.12 9.81 L 16.06 9.78 L 16.00 9.74 L 15.95 9.70 L 15.90 9.66 L 15.90 9.66 L 15.85 9.62 L 15.80 9.57 L 15.76 9.53 L 15.72 9.48 L 15.67 9.43 L 15.64 9.38 L 15.60 9.33 L 15.57 9.27 L 15.53 9.22 L 15.50 9.16 L 15.50 9.16 L 15.48 9.11 L 15.45 9.05 L 15.43 8.99 L 15.40 8.93 L 15.38 8.87 L 15.36 8.81 L 15.35 8.75 L 15.33 8.68 L 15.32 8.62 L 15.31 8.56 L 16.48 8.46 L 16.48 8.46 L 16.48 8.49 L 16.49 8.51 L 16.50 8.54 L 16.51 8.57 L 16.52 8.60 L 16.53 8.62 L 16.54 8.65 L 16.55 8.67 L 16.56 8.70 L 16.57 8.73 L 16.57 8.73 L 16.58 8.75 L 16.60 8.78 L 16.61 8.80 L 16.63 8.83 L 16.64 8.85 L 16.66 8.87 L 16.68 8.89 L 16.70 8.91 L 16.72 8.94 L 16.74 8.96 L 16.74 8.96 L 16.76 8.98 L 16.79 8.99 L 16.81 9.01 L 16.84 9.03 L 16.86 9.05 L 16.89 9.06 L 16.92 9.08 L 16.95 9.09 L 16.98 9.11 L 17.01 9.12 L 17.01 9.12 L 17.04 9.13 L 17.07 9.14 L 17.11 9.15 L 17.14 9.16 L 17.18 9.16 L 17.22 9.17 L 17.26 9.17 L 17.30 9.17 L 17.35 9.18 L 17.39 9.18 L 17.39 9.18 L 17.48 9.17 L 17.56 9.17 L 17.64 9.15 L 17.71 9.13 L 17.78 9.11 L 17.85 9.08 L 17.92 9.04 L 17.98 9.00 L 18.03 8.95 L 18.09 8.90 L 18.09 8.90 L 18.14 8.84 L 18.18 8.78 L 18.22 8.71 L 18.25 8.63 L 18.28 8.56 L 18.31 8.47 L 18.33 8.39 L 18.34 8.29 L 18.35 8.20 L 18.35 8.09 L 18.35 8.09 L 18.35 8.05 L 18.35 8.00 L 18.34 7.96 L 18.34 7.91 L 18.33 7.87 L 18.33 7.83 L 18.32 7.79 L 18.31 7.75 L 18.30 7.71 L 18.28 7.67 L 18.28 7.67 L 18.27 7.64 L 18.26 7.60 L 18.24 7.56 L 18.22 7.53 L 18.21 7.50 L 18.19 7.47 L 18.17 7.44 L 18.15 7.41 L 18.12 7.38 L 18.10 7.35 L 18.10 7.35 L 18.08 7.33 L 18.05 7.30 L 18.02 7.28 L 18.00 7.25 L 17.97 7.23 L 17.94 7.21 L 17.91 7.20 L 17.88 7.18 L 17.84 7.16 L 17.81 7.15 L 17.81 7.15 L 17.77 7.13 L 17.74 7.12 L 17.70 7.11 L 17.66 7.10 L 17.62 7.09 L 17.58 7.09 L 17.54 7.08 L 17.50 7.08 L 17.46 7.08 L 17.42 7.08 L 17.42 7.08 L 17.36 7.08 L 17.30 7.08 L 17.25 7.09 L 17.20 7.09 L 17.15 7.10 L 17.10 7.12 L 17.06 7.13 L 17.02 7.15 L 16.97 7.17 L 16.94 7.19 L 16.94 7.19 L 16.90 7.21 L 16.86 7.23 L 16.83 7.26 L 16.80 7.28 L 16.76 7.31 L 16.73 7.34 L 16.70 7.36 L 16.67 7.39 L 16.65 7.42 L 16.62 7.46 L 15.48 7.46 L 15.68 4.15 L 19.21 4.15 L 19.21 5.02 L 16.74 5.02 L 16.65 6.51 L 16.65 6.51 L 16.68 6.47 L 16.72 6.45 L 16.76 6.42 L 16.80 6.39 L 16.85 6.36 L 16.89 6.34 L 16.94 6.31 L 16.99 6.29 L 17.04 6.26 L 17.09 6.24 L 17.09 6.24 L 17.14 6.22 L 17.20 6.20 L 17.26 6.19 L 17.32 6.17 L 17.38 6.16 L 17.44 6.15 L 17.51 6.14 L 17.57 6.13 L 17.64 6.13 L 17.71 6.13 L 17.71 6.13 L 17.80 6.13 L 17.88 6.14 L 17.96 6.14 L 18.04 6.15 L 18.12 6.17 L 18.20 6.18 L 18.27 6.20 L 18.35 6.22 L 18.42 6.24 L 18.49 6.27 L 18.49 6.27 L 18.55 6.30 L 18.62 6.33 L 18.68 6.37 L 18.74 6.40 L 18.80 6.44 L 18.86 6.48 L 18.91 6.53 L 18.97 6.57 L 19.02 6.62 L 19.07 6.67 L 19.07 6.67 L 19.11 6.72 L 19.16 6.77 L 19.20 6.83 L 19.24 6.89 L 19.28 6.95 L 19.31 7.01 L 19.34 7.07 L 19.37 7.14 L 19.40 7.21 L 19.43 7.28 L 19.43 7.28 L 19.45 7.35 L 19.47 7.43 L 19.49 7.50 L 19.51 7.58 L 19.52 7.65 L 19.53 7.73 L 19.54 7.82 L 19.55 7.90 L 19.55 7.98 L 19.55 8.07 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path><path d="M 27.16 8.22 L 27.16 8.22 L 27.15 8.32 L 27.15 8.42 L 27.15 8.52 L 27.14 8.61 L 27.13 8.70 L 27.11 8.79 L 27.10 8.87 L 27.08 8.95 L 27.06 9.03 L 27.04 9.10 L 27.04 9.10 L 27.02 9.17 L 26.99 9.24 L 26.96 9.30 L 26.93 9.37 L 26.90 9.43 L 26.87 9.48 L 26.84 9.54 L 26.80 9.59 L 26.76 9.64 L 26.72 9.68 L 26.72 9.68 L 26.68 9.72 L 26.64 9.76 L 26.60 9.80 L 26.55 9.84 L 26.50 9.87 L 26.46 9.90 L 26.41 9.93 L 26.36 9.95 L 26.31 9.97 L 26.25 9.99 L 26.25 9.99 L 26.20 10.01 L 26.14 10.03 L 26.09 10.04 L 26.03 10.06 L 25.98 10.07 L 25.92 10.07 L 25.86 10.08 L 25.80 10.09 L 25.74 10.09 L 25.68 10.09 L 25.68 10.09 L 25.62 10.09 L 25.56 10.09 L 25.50 10.08 L 25.44 10.07 L 25.38 10.07 L 25.32 10.06 L 25.26 10.04 L 25.21 10.03 L 25.15 10.01 L 25.10 9.99 L 25.10 9.99 L 25.04 9.97 L 24.99 9.95 L 24.94 9.93 L 24.89 9.90 L 24.85 9.87 L 24.80 9.84 L 24.76 9.80 L 24.71 9.76 L 24.67 9.72 L 24.63 9.68 L 24.63 9.68 L 24.59 9.64 L 24.56 9.59 L 24.52 9.54 L 24.49 9.48 L 24.45 9.43 L 24.42 9.37 L 24.39 9.30 L 24.37 9.24 L 24.34 9.17 L 24.32 9.10 L 24.32 9.10 L 24.30 9.03 L 24.28 8.95 L 24.26 8.87 L 24.25 8.79 L 24.23 8.70 L 24.22 8.61 L 24.22 8.52 L 24.21 8.42 L 24.21 8.32 L 24.21 8.22 L 24.21 8.22 L 24.21 8.11 L 24.21 8.01 L 24.22 7.91 L 24.22 7.81 L 24.23 7.72 L 24.25 7.63 L 24.26 7.55 L 24.28 7.46 L 24.30 7.39 L 24.32 7.31 L 24.32 7.31 L 24.34 7.24 L 24.37 7.17 L 24.40 7.11 L 24.42 7.05 L 24.46 6.99 L 24.49 6.93 L 24.52 6.88 L 24.56 6.83 L 24.60 6.78 L 24.63 6.74 L 24.63 6.74 L 24.68 6.70 L 24.72 6.66 L 24.76 6.62 L 24.81 6.59 L 24.85 6.56 L 24.90 6.53 L 24.95 6.50 L 25.00 6.48 L 25.05 6.46 L 25.11 6.44 L 25.11 6.44 L 25.16 6.42 L 25.22 6.41 L 25.27 6.39 L 25.33 6.38 L 25.39 6.37 L 25.45 6.36 L 25.51 6.36 L 25.57 6.35 L 25.63 6.35 L 25.70 6.35 L 25.70 6.35 L 25.76 6.35 L 25.82 6.35 L 25.87 6.36 L 25.93 6.36 L 25.99 6.37 L 26.05 6.38 L 26.10 6.39 L 26.16 6.41 L 26.21 6.42 L 26.26 6.44 L 26.26 6.44 L 26.32 6.46 L 26.37 6.48 L 26.42 6.50 L 26.47 6.53 L 26.51 6.56 L 26.56 6.59 L 26.60 6.62 L 26.65 6.66 L 26.69 6.70 L 26.73 6.74 L 26.73 6.74 L 26.77 6.78 L 26.80 6.83 L 26.84 6.88 L 26.87 6.93 L 26.90 6.99 L 26.94 7.05 L 26.96 7.11 L 26.99 7.17 L 27.02 7.24 L 27.04 7.31 L 27.04 7.31 L 27.06 7.39 L 27.08 7.46 L 27.10 7.55 L 27.11 7.63 L 27.13 7.72 L 27.14 7.81 L 27.15 7.91 L 27.15 8.01 L 27.15 8.11 L 27.16 8.22 ZM 22.09 10.02 L 21.23 10.02 L 25.07 4.15 L 25.94 4.15 L 22.09 10.02 ZM 21.49 4.08 L 21.49 4.08 L 21.55 4.08 L 21.61 4.09 L 21.67 4.09 L 21.73 4.10 L 21.78 4.11 L 21.84 4.12 L 21.90 4.13 L 21.95 4.14 L 22.00 4.15 L 22.06 4.17 L 22.06 4.17 L 22.11 4.19 L 22.16 4.21 L 22.21 4.23 L 22.26 4.26 L 22.31 4.29 L 22.35 4.32 L 22.40 4.35 L 22.44 4.39 L 22.48 4.43 L 22.53 4.47 L 22.53 4.47 L 22.56 4.51 L 22.60 4.56 L 22.64 4.61 L 22.67 4.66 L 22.70 4.72 L 22.74 4.78 L 22.76 4.84 L 22.79 4.90 L 22.82 4.97 L 22.84 5.04 L 22.84 5.04 L 22.86 5.12 L 22.88 5.19 L 22.90 5.27 L 22.92 5.36 L 22.93 5.45 L 22.94 5.54 L 22.95 5.64 L 22.95 5.74 L 22.96 5.84 L 22.96 5.95 L 22.96 5.95 L 22.96 6.05 L 22.95 6.15 L 22.95 6.25 L 22.94 6.34 L 22.93 6.43 L 22.92 6.52 L 22.90 6.60 L 22.88 6.68 L 22.86 6.76 L 22.84 6.83 L 22.84 6.83 L 22.82 6.90 L 22.79 6.97 L 22.76 7.03 L 22.73 7.10 L 22.70 7.15 L 22.67 7.21 L 22.64 7.26 L 22.60 7.32 L 22.56 7.36 L 22.52 7.41 L 22.52 7.41 L 22.48 7.45 L 22.44 7.49 L 22.39 7.53 L 22.35 7.57 L 22.30 7.60 L 22.26 7.63 L 22.21 7.66 L 22.16 7.68 L 22.10 7.71 L 22.05 7.73 L 22.05 7.73 L 22.00 7.74 L 21.94 7.76 L 21.88 7.78 L 21.83 7.79 L 21.77 7.80 L 21.71 7.81 L 21.65 7.81 L 21.59 7.82 L 21.53 7.82 L 21.47 7.82 L 21.47 7.82 L 21.41 7.82 L 21.35 7.82 L 21.29 7.81 L 21.23 7.81 L 21.18 7.80 L 21.12 7.79 L 21.06 7.78 L 21.01 7.76 L 20.95 7.74 L 20.90 7.73 L 20.90 7.73 L 20.84 7.71 L 20.79 7.68 L 20.74 7.66 L 20.69 7.63 L 20.65 7.60 L 20.60 7.57 L 20.56 7.53 L 20.51 7.50 L 20.47 7.46 L 20.43 7.41 L 20.43 7.41 L 20.39 7.37 L 20.35 7.32 L 20.32 7.27 L 20.28 7.22 L 20.25 7.16 L 20.22 7.10 L 20.19 7.04 L 20.17 6.97 L 20.14 6.90 L 20.12 6.83 L 20.12 6.83 L 20.10 6.76 L 20.08 6.68 L 20.06 6.60 L 20.04 6.52 L 20.03 6.43 L 20.02 6.34 L 20.01 6.25 L 20.01 6.15 L 20.01 6.05 L 20.00 5.95 L 20.00 5.95 L 20.01 5.84 L 20.01 5.74 L 20.01 5.64 L 20.02 5.54 L 20.03 5.45 L 20.04 5.36 L 20.06 5.27 L 20.08 5.19 L 20.10 5.12 L 20.12 5.04 L 20.12 5.04 L 20.14 4.97 L 20.16 4.90 L 20.19 4.84 L 20.22 4.78 L 20.25 4.72 L 20.28 4.66 L 20.32 4.61 L 20.35 4.56 L 20.39 4.51 L 20.43 4.47 L 20.43 4.47 L 20.47 4.43 L 20.51 4.39 L 20.56 4.35 L 20.60 4.32 L 20.65 4.29 L 20.69 4.26 L 20.74 4.23 L 20.79 4.21 L 20.85 4.19 L 20.90 4.17 L 20.90 4.17 L 20.96 4.15 L 21.01 4.14 L 21.07 4.13 L 21.13 4.12 L 21.19 4.11 L 21.25 4.10 L 21.31 4.09 L 21.37 4.09 L 21.43 4.08 L 21.49 4.08 ZM 26.26 8.22 L 26.26 8.22 L 26.26 8.15 L 26.26 8.08 L 26.26 8.02 L 26.25 7.95 L 26.25 7.89 L 26.25 7.83 L 26.24 7.78 L 26.24 7.72 L 26.23 7.67 L 26.22 7.62 L 26.22 7.62 L 26.22 7.58 L 26.21 7.53 L 26.20 7.49 L 26.19 7.45 L 26.18 7.41 L 26.17 7.37 L 26.16 7.34 L 26.15 7.31 L 26.13 7.28 L 26.12 7.25 L 26.12 7.25 L 26.10 7.22 L 26.09 7.19 L 26.07 7.17 L 26.06 7.15 L 26.04 7.13 L 26.02 7.11 L 26.00 7.09 L 25.98 7.08 L 25.96 7.06 L 25.94 7.05 L 25.94 7.05 L 25.92 7.04 L 25.90 7.03 L 25.88 7.02 L 25.85 7.01 L 25.83 7.01 L 25.80 7.00 L 25.78 7.00 L 25.75 7.00 L 25.73 6.99 L 25.70 6.99 L 25.70 6.99 L 25.67 6.99 L 25.64 7.00 L 25.61 7.00 L 25.58 7.00 L 25.55 7.01 L 25.53 7.01 L 25.50 7.02 L 25.48 7.03 L 25.45 7.04 L 25.43 7.05 L 25.43 7.05 L 25.41 7.06 L 25.39 7.08 L 25.37 7.09 L 25.35 7.11 L 25.33 7.13 L 25.31 7.15 L 25.30 7.17 L 25.28 7.19 L 25.27 7.22 L 25.25 7.25 L 25.25 7.25 L 25.24 7.28 L 25.22 7.31 L 25.21 7.34 L 25.20 7.38 L 25.19 7.41 L 25.18 7.45 L 25.17 7.49 L 25.16 7.54 L 25.15 7.58 L 25.14 7.63 L 25.14 7.63 L 25.14 7.68 L 25.13 7.73 L 25.13 7.78 L 25.12 7.84 L 25.12 7.89 L 25.11 7.95 L 25.11 8.02 L 25.11 8.08 L 25.11 8.15 L 25.11 8.22 L 25.11 8.22 L 25.11 8.29 L 25.11 8.36 L 25.11 8.42 L 25.11 8.48 L 25.12 8.54 L 25.12 8.60 L 25.13 8.66 L 25.13 8.71 L 25.14 8.76 L 25.14 8.81 L 25.14 8.81 L 25.15 8.85 L 25.16 8.89 L 25.17 8.94 L 25.18 8.98 L 25.19 9.01 L 25.20 9.05 L 25.21 9.08 L 25.22 9.12 L 25.23 9.15 L 25.25 9.18 L 25.25 9.18 L 25.26 9.20 L 25.28 9.23 L 25.30 9.25 L 25.31 9.28 L 25.33 9.30 L 25.35 9.32 L 25.37 9.33 L 25.39 9.35 L 25.41 9.36 L 25.43 9.38 L 25.43 9.38 L 25.45 9.39 L 25.48 9.40 L 25.50 9.41 L 25.52 9.41 L 25.55 9.42 L 25.58 9.43 L 25.60 9.43 L 25.63 9.43 L 25.66 9.43 L 25.69 9.44 L 25.69 9.44 L 25.72 9.43 L 25.74 9.43 L 25.77 9.43 L 25.79 9.43 L 25.82 9.42 L 25.84 9.41 L 25.87 9.41 L 25.89 9.40 L 25.91 9.39 L 25.93 9.38 L 25.93 9.38 L 25.95 9.36 L 25.97 9.35 L 25.99 9.33 L 26.01 9.32 L 26.03 9.30 L 26.05 9.28 L 26.06 9.26 L 26.08 9.23 L 26.10 9.21 L 26.11 9.18 L 26.11 9.18 L 26.12 9.15 L 26.14 9.12 L 26.15 9.09 L 26.16 9.05 L 26.18 9.02 L 26.19 8.98 L 26.20 8.94 L 26.21 8.90 L 26.21 8.85 L 26.22 8.81 L 26.22 8.81 L 26.23 8.76 L 26.24 8.71 L 26.24 8.66 L 26.25 8.60 L 26.25 8.54 L 26.25 8.48 L 26.26 8.42 L 26.26 8.36 L 26.26 8.29 L 26.26 8.22 ZM 22.05 5.95 L 22.05 5.95 L 22.05 5.88 L 22.05 5.81 L 22.05 5.75 L 22.05 5.68 L 22.05 5.62 L 22.04 5.57 L 22.04 5.51 L 22.03 5.46 L 22.02 5.41 L 22.02 5.36 L 22.02 5.36 L 22.01 5.31 L 22.00 5.27 L 21.99 5.23 L 21.98 5.18 L 21.97 5.15 L 21.96 5.11 L 21.95 5.08 L 21.94 5.04 L 21.93 5.01 L 21.91 4.98 L 21.91 4.98 L 21.90 4.96 L 21.88 4.93 L 21.87 4.91 L 21.85 4.88 L 21.83 4.86 L 21.82 4.85 L 21.80 4.83 L 21.78 4.81 L 21.76 4.80 L 21.74 4.79 L 21.74 4.79 L 21.72 4.78 L 21.69 4.77 L 21.67 4.76 L 21.65 4.75 L 21.62 4.74 L 21.60 4.74 L 21.57 4.73 L 21.55 4.73 L 21.52 4.73 L 21.49 4.73 L 21.49 4.73 L 21.46 4.73 L 21.43 4.73 L 21.40 4.73 L 21.38 4.74 L 21.35 4.74 L 21.32 4.75 L 21.30 4.76 L 21.27 4.77 L 21.25 4.78 L 21.23 4.79 L 21.23 4.79 L 21.20 4.80 L 21.18 4.81 L 21.16 4.83 L 21.14 4.85 L 21.12 4.87 L 21.11 4.89 L 21.09 4.91 L 21.07 4.93 L 21.06 4.96 L 21.04 4.99 L 21.04 4.99 L 21.03 5.02 L 21.01 5.05 L 21.00 5.08 L 20.99 5.11 L 20.98 5.15 L 20.97 5.19 L 20.96 5.23 L 20.95 5.27 L 20.94 5.32 L 20.93 5.36 L 20.93 5.36 L 20.93 5.41 L 20.92 5.46 L 20.92 5.51 L 20.91 5.57 L 20.91 5.63 L 20.91 5.69 L 20.90 5.75 L 20.90 5.81 L 20.90 5.88 L 20.90 5.95 L 20.90 5.95 L 20.90 6.02 L 20.90 6.09 L 20.90 6.15 L 20.91 6.21 L 20.91 6.27 L 20.91 6.33 L 20.92 6.38 L 20.92 6.44 L 20.93 6.49 L 20.93 6.53 L 20.93 6.53 L 20.94 6.58 L 20.95 6.62 L 20.96 6.67 L 20.97 6.71 L 20.98 6.74 L 20.99 6.78 L 21.00 6.82 L 21.01 6.85 L 21.03 6.88 L 21.04 6.91 L 21.04 6.91 L 21.06 6.94 L 21.07 6.96 L 21.09 6.99 L 21.11 7.01 L 21.13 7.03 L 21.14 7.05 L 21.16 7.07 L 21.18 7.09 L 21.20 7.10 L 21.23 7.11 L 21.23 7.11 L 21.25 7.12 L 21.27 7.13 L 21.29 7.14 L 21.32 7.15 L 21.34 7.16 L 21.37 7.16 L 21.40 7.17 L 21.43 7.17 L 21.45 7.17 L 21.48 7.17 L 21.48 7.17 L 21.51 7.17 L 21.54 7.17 L 21.57 7.17 L 21.59 7.16 L 21.62 7.16 L 21.64 7.15 L 21.66 7.14 L 21.69 7.13 L 21.71 7.12 L 21.73 7.11 L 21.73 7.11 L 21.75 7.10 L 21.77 7.09 L 21.79 7.07 L 21.81 7.05 L 21.83 7.03 L 21.85 7.01 L 21.86 6.99 L 21.88 6.97 L 21.89 6.94 L 21.91 6.91 L 21.91 6.91 L 21.92 6.88 L 21.94 6.85 L 21.95 6.82 L 21.96 6.79 L 21.97 6.75 L 21.98 6.71 L 21.99 6.67 L 22.00 6.63 L 22.01 6.58 L 22.02 6.54 L 22.02 6.54 L 22.02 6.49 L 22.03 6.44 L 22.04 6.39 L 22.04 6.33 L 22.05 6.27 L 22.05 6.21 L 22.05 6.15 L 22.05 6.09 L 22.05 6.02 L 22.05 5.95 Z" style="fill-rule: nonzero; fill: #FFFFFF; stroke-width: 0.75; stroke: none;"></path></g></g>
+</svg></td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="home-heating-fuel-types" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="home-heating-fuel-types"><span class="header-section-number">6</span> Home Heating: Fuel Types</h2>
+<p>Analysis of the main heating fuel type in homes with an Energy Performance Certificate (EPC) in the West of England. The data is current to July 2025. Only aroung 70% of homes in the West of England have an EPC. The main heat classification in the data is not always precisely defined, so the categories below are broad groupings.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>mainheat_category_table <span class="ot">&lt;-</span> <span class="fu">read_rds</span>(<span class="st">"data/mainheat_category_table.rds"</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot_tbl <span class="ot">&lt;-</span> epc_domestic_lep_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(MAINHEAT_DESCRIPTION) <span class="sc">|&gt;</span> </span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(mainheat_category_table, <span class="at">by =</span> <span class="fu">join_by</span>(<span class="st">"MAINHEAT_DESCRIPTION"</span> <span class="sc">==</span> <span class="st">"mainheat"</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">str_starts</span>(category, <span class="st">"Two"</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(category) <span class="sc">|&gt;</span> </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">category =</span> <span class="fu">if_else</span>(<span class="fu">str_starts</span>(category, <span class="st">"Renewable"</span>), <span class="st">"Renewable inc. heat pumps"</span>, category),</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">category =</span> <span class="fu">as_factor</span>(category) <span class="sc">|&gt;</span> <span class="fu">fct_reorder</span>(n)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot <span class="ot">&lt;-</span> </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> category, <span class="at">y =</span> n)) <span class="sc">+</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">fill =</span> weca_cols[<span class="dv">1</span>]) <span class="sc">+</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># scale_fill_manual(values = weca_core_colours[c(1,3,4)]) +</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_discrete</span>(<span class="at">labels =</span> <span class="cf">function</span>(x) <span class="fu">str_wrap</span>(x, <span class="at">width =</span> <span class="dv">10</span>)) <span class="sc">+</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Main heating fuel type in homes with an EPC"</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England homes with an EPC to {epc_date}"</span>),</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Number of homes"</span>,</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: Ministry of Housing, Communities &amp; Local Government"</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">15</span>),</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text  =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>),</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">20</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>))</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="environment-plan-evidence_files/figure-html/plot-fuel-types-home-heating-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="energy-consumption-over-time-by-local-authority" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="energy-consumption-over-time-by-local-authority"><span class="header-section-number">7</span> Energy Consumption Over Time by Local Authority</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>start_year <span class="ot">&lt;-</span> max_year <span class="sc">-</span> <span class="dv">9</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>energy_weca_plot_tbl <span class="ot">&lt;-</span> energy_data_all_la_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(ladcd <span class="sc">%in%</span> weca_ns_la_codes,</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  fuel <span class="sc">==</span> <span class="st">"All fuels"</span>,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  sector <span class="sc">==</span> <span class="st">"Total"</span>,</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  year <span class="sc">&gt;=</span> start_year</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">transmute</span>(year, ladnm, <span class="at">gwh =</span> value <span class="sc">*</span> <span class="fl">11.63</span>)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>energy_weca_plot <span class="ot">&lt;-</span> </span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>energy_weca_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> year, <span class="at">y =</span> gwh, <span class="at">fill =</span> ladnm)) <span class="sc">+</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_cols) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Total energy consumption (GWh)"</span>,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities {start_year} to {max_year}"</span>),</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"GWh"</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: Sub - national total final energy consumption"</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text  =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>),</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">20</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>),</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">"right"</span>,</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>))</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>energy_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="environment-plan-evidence_files/figure-html/energy-consumption-la-year-plot-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="emissions-over-time-by-local-authority" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="emissions-over-time-by-local-authority"><span class="header-section-number">8</span> Emissions Over Time by Local Authority</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># make a stacked col plot of emissions by local authority and year</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>(<span class="at">enable =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot <span class="ot">&lt;-</span> emissions_weca_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> calendar_year, <span class="at">y =</span> total_emissions, <span class="at">fill =</span> local_authority)) <span class="sc">+</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_cols) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="fu">quickText</span>(<span class="st">"Total territorial emissions (KtCO2e)"</span>),</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities {start_year} to {max_year}"</span>),</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="fu">quickText</span>(<span class="st">"KtCO2e"</span>),</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: UK local authority and regional greenhouse gas emissions statistics"</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text  =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>),</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">20</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">16</span>),</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">"right"</span>,</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>))</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="environment-plan-evidence_files/figure-html/emissions-by-local-authority-year-plot-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>output_dir <span class="ot">&lt;-</span> <span class="st">"plots"</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(output_dir, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>) <span class="co"># Create folder if it doesn't exist</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Find all ggplot objects in the environment</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>all_gt_objects <span class="ot">&lt;-</span> <span class="fu">find_objects_by_class</span>(<span class="st">"gt_tbl"</span>)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># loop through the list of gt objects and save each one</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (table_name <span class="cf">in</span> <span class="fu">names</span>(all_gt_objects)) {</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Get the gt object</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>  table_obj <span class="ot">&lt;-</span> all_gt_objects[[table_name]]</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Construct a clean filename</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>  file_path <span class="ot">&lt;-</span> <span class="fu">file.path</span>(output_dir, <span class="fu">paste0</span>(table_name, <span class="st">".png"</span>))</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Save the gt table using gtsave</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gtsave</span>(</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> table_obj,</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">filename =</span> file_path,</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">expand =</span> <span class="dv">10</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Optional: print a message to the console during rendering</span></span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="fu">paste</span>(<span class="st">"Saved table:"</span>, file_path))</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>file:///C:/Users/STEVE~1.CRA/AppData/Local/Temp/Rtmpm8jYCn/file44086e8166c9.html screenshot completed</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Saved table: plots/fuel_gt.png</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>file:///C:/Users/STEVE~1.CRA/AppData/Local/Temp/Rtmpm8jYCn/file440815902a13.html screenshot completed</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Saved table: plots/sector_gt.png</code></pre>
+</div>
 </div>
 </section>
 

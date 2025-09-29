@@ -31,14 +31,20 @@ format:
     fig-height: 5
     fig-align: center
     df-print: paged
+chunk-options:
+  warning: false
+  message: false
+  echo: true
+  cache: true
+  cache-location: caches
 ---
 
 ```{r libraries}
-#| echo: FALSE
-pacman::p_load(tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras)
+pacman::p_load(tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras, treemapify, openair, emojifont, ggtext, patchwork, showtext)
 ```
+
 ```{r global-variables}
-#| echo: FALSE
+
 # get named vector of colours from WECA brand guidelines
 weca_core_colours <- jsonlite::read_json(
   "https://raw.githubusercontent.com/westofengland-ca/weca_templates/refs/heads/main/General_branding/brand_guidelines.json"
@@ -46,6 +52,31 @@ weca_core_colours <- jsonlite::read_json(
   pluck(3, "colors", "primary_colors") |>
   map("hex") |>
   unlist()
+```
+
+```{r setup}
+#| include: false
+
+#' Find objects of a specific class in an environment
+#'
+#' @param class_name The class to search for (e.g., "ggplot", "data.frame").
+#' @param env The environment to search in. Defaults to the current environment.
+#' @return A named list of objects matching the class.
+find_objects_by_class <- function(class_name, env = .GlobalEnv) {
+  all_objs <- ls(envir = env)
+  
+  is_target_class <- sapply(all_objs, function(obj) {
+    inherits(get(obj, envir = env), class_name)
+  })
+  
+  matching_names <- names(which(is_target_class))
+  
+  if (length(matching_names) > 0) {
+    return(mget(matching_names, envir = env))
+  } else {
+    return(list())
+  }
+}
 ```
 
 
@@ -57,26 +88,93 @@ The primary data sources used in this analysis include: <br>
     - [Sub - national total final energy consumption (DESNZ)](https://www.gov.uk/government/statistics/total-final-energy-consumption-at-regional-and-local-authority-level-2005-to-2023) <br>
     - [UK local authority and regional carbon dioxide emissions national statistics (DESNZ)](https://www.gov.uk/government/statistics/uk-local-authority-and-regional-greenhouse-gas-emissions-statistics-2005-to-2023)
 
-
-```{r data-import}
+North Somerset council is included in the West of England data throughout this document. The intention is for North Somerset to join the Mayoral Combined Authority in due course.
+```{r data-import-files}
+# TODO - incorporate energy in the duckdb database
 energy_data_all_la_tbl <- read_parquet("data/clean_energy_la_long_tbl.parquet")
+
+```
+```{r data-import-epc}
 # motherduck extension not available in windows!
-con <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
-con |> dbExecute("INSTALL spatial;")
-con |> dbExecute("LOAD spatial;")
-ca_la_tbl <- dbGetQuery(con, "FROM ca_la_tbl") |> collect()
-ghg_emissions_tbl <- dbGetQuery(con, "FROM ghg_emissions_tbl") |> collect()
-emissions_tbl <- dbGetQuery(con, "FROM emissions_tbl") |> collect()
-epc_domestic_tbl <- dbGetQuery(con, "FROM epc_domestic_vw") |> collect()
-epc_non_domestic_tbl <- dbGetQuery(con, "FROM epc_non_domestic_vw") |> collect()
+con_epc <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
+con_epc |> dbExecute("LOAD spatial") |> invisible()
+ca_la_tbl <- dbGetQuery(con_epc, "FROM ca_la_tbl") 
+ghg_emissions_tbl <- dbGetQuery(con_epc, "FROM ghg_emissions_tbl")
+emissions_tbl <- dbGetQuery(con_epc, "FROM emissions_tbl") 
+epc_domestic_lep_tbl <- dbGetQuery(con_epc, "FROM epc_domestic_lep_vw") 
+epc_non_domestic_tbl <- dbGetQuery(con_epc, "FROM epc_non_domestic_vw")
 weca_ns_la_names <- ca_la_tbl |> filter(cauthnm == "West of England") |> pull(ladnm)
 weca_ns_la_codes <- ca_la_tbl |> filter(cauthnm == "West of England") |> pull(ladcd)
 ```
 
-```{r variables-from-data}
-#| echo: FALSE
-max_year <- max(energy_data_all_la_tbl$year)
+```{r data-import-env}
+con_env <- dbConnect(duckdb::duckdb("data/regional_energy.duckdb"))
+con_env |> dbExecute("LOAD SPATIAL") |> invisible()
+electricity_la_tbl <- dbGetQuery(con_env, "FROM electricity_la_tbl")
 ```
+
+```{r variables-from-data}
+max_year <- max(energy_data_all_la_tbl$year)
+ 
+  if (as.Date(max(epc_domestic_lep_tbl$LODGEMENT_DATE)) < Sys.Date()){
+  latest_epc_date <-  as.Date(max(epc_domestic_lep_tbl$LODGEMENT_DATE))
+  } else {
+latest_epc_date <- rollbackward(Sys.Date())
+  }
+
+epc_date <- strftime(latest_epc_date, format = "%B %Y")
+```
+
+## Emissions by Local Authority
+
+The treemap below shows the total territorial emissions in Kilotonnes of CO2 equivalent (KtCO2e) for each local authority in the West of England for the most recent year available, which is `r max_year`.
+
+```{r emissions-data-for-treemap}
+#| echo: FALSE
+emissions_data_weca_max_year_tbl <- ghg_emissions_tbl |> 
+  filter(local_authority_code %in% weca_ns_la_codes,
+  calendar_year == max_year
+  ) |> 
+  group_by(local_authority) |> 
+  summarise(total_emissions = sum(territorial_emissions_kt_co2e))
+
+```
+
+```{r treemap-plot-emissions}
+weca_cols <- weca_core_colours[2:5] |> 
+  unname() |> 
+  set_names(weca_ns_la_names)
+showtext_auto(enable = FALSE)
+
+emissions_treemap_plot <- emissions_data_weca_max_year_tbl |>
+  ggplot(aes(
+    area = total_emissions,
+    fill = local_authority,
+    label = glue("{round(total_emissions, 0)}\n{local_authority}")
+  )) +
+  geom_treemap() +
+  geom_treemap_text(
+    colour = "white",
+    place = "topleft",
+    min.size = 4,
+    grow = FALSE,
+    reflow = TRUE
+  ) +
+  scale_fill_manual(values = weca_cols) +
+    labs(
+    title = glue("Total territorial emissions by local authority {max_year} (KtCO2e)") |> quickText(),
+    caption = "Source: UK local authority and regional greenhouse gas emissions statistics",
+    fill = "Local authority"
+  ) +
+  theme(legend.position = "none",
+    plot.title = element_text(size = 20, face = "bold"))
+
+emissions_treemap_plot
+```
+
+## Energy Consumption and Fuel Types
+
+Transport uses the largest share of energy in the West of England, closely followed by domestic and then industry, commercial and other users. The data below is for all energy consumption in the West of England in `r max_year`. Almost all transport energy use is from petroleum products.
 
 ```{r energy-by-end-user}
 energy_data_weca_max_year_all_fuels_tbl <- energy_data_all_la_tbl |> 
@@ -87,8 +185,7 @@ energy_data_weca_max_year_all_fuels_tbl <- energy_data_all_la_tbl |>
   ) |>
 group_by(sector) |>
 summarise(energy_GTOe = sum(value, na.rm = TRUE)) |>
-mutate(pct_sector = (energy_GTOe / sum(energy_GTOe))) |>
-  glimpse()
+mutate(pct_sector = (energy_GTOe / sum(energy_GTOe))) 
 ```
 
 ```{r gt-table-energy-by-end-user}
@@ -99,20 +196,18 @@ fa_tbl <- c(
   "Industrial commercial and other" = "industry",
   "Transport" = "car-side"
 ) |>
-  enframe(name = "sector", value = "fa_icon") |>
-  glimpse()
+  enframe(name = "sector", value = "fa_icon") 
 
 gt_source_tbl <- energy_data_weca_max_year_all_fuels_tbl |>
   inner_join(fa_tbl, by = join_by("sector" == "sector")) |>
-  arrange(desc(pct_sector)) %>%
-  glimpse()
+  arrange(desc(pct_sector)) 
 
 sector_gt <- gt_source_tbl |>
-  select(fa_icon, sector, pct_sector) %>%
+  select(fa_icon, sector, pct_sector) |> 
   gt() |>
   fmt_icon(
     fa_icon
-  ) %>%
+  ) |> 
   gt_plt_bar(
     pct_sector,
     scale_type = "percent",
@@ -129,10 +224,99 @@ sector_gt <- gt_source_tbl |>
 sector_gt
 
 ```
+A pie chart representation of the energy consumption by end user sector is shown below.
+```{r energy-sector-pie-chart}
+# alternative representation using a pie chart with icons
+font_add(
+  family = "fontawesome", 
+  regular = "font-awesome-4.7.0/fonts/fontawesome-webfont.ttf"
+)
+# Enable showtext to automatically render text in plots
+showtext_auto()
+# Create the data frame
+# --- THE ONLY CHANGE IS THE LAST ICON CODE ---
+# 
+pie_data_tbl <- energy_data_weca_max_year_all_fuels_tbl |>
+  select(sector, pct_sector) |>
+  mutate(value = round(pct_sector * 100)) |> 
+  mutate(icon = c("\uf015", "\uf275", "\uf1b9")) # Home, Industry, Car)
 
+# Calculate positions for labels and icons
+pie_data_clean_tbl <- pie_data_tbl %>%
+  # Arrange data to match the visual layout (clockwise from the top)
+  arrange(match(sector, c("Industry commercial and other", "Transport", "Domestic"))) %>%
+  mutate(
+    y_pos = cumsum(value) - 0.5 * value,
+    label_text = paste0(value, "%")
+  )
+
+# Define colors to match the image
+bg_color <- "#1A2A3A"
+line_color <- "#A8B820"
+
+# Create the pie chart plot
+pie_chart <- ggplot(pie_data_clean_tbl, aes(x = 2, y = value)) +
+  # Create the pie slices. We use a dark fill to match the background
+  # and a colored border to create the "ring" effect.
+  geom_col(width = 1.8, color = line_color, fill = bg_color, linewidth = 0.5) +
+
+  # Add the percentage labels outside the circle
+  geom_text(aes(x = 3.1, y = y_pos, label = label_text),
+            color = line_color,
+            fontface = "bold",
+            size = 14) +
+
+  # Add the icons using geom_text with the Font Awesome family
+  geom_text(aes(x = 2, y = y_pos, label = icon),
+            family = "fontawesome", # Use Font Awesome font
+            size = 15,
+            color = line_color) +
+
+  # Convert the bar chart to a pie chart
+  coord_polar(theta = "y", start = pi/2, direction = -1) +
+
+  # Set limits to create space around the pie
+  xlim(c(0.5, 3.2)) +
+
+  # Use a minimal theme and set the background color
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = bg_color, color = NA),
+    panel.background = element_rect(fill = bg_color, color = NA)
+  )
+
+# Define the text content with HTML for styling
+text_content <- "
+<span style='font-size:24pt; color:white; font-weight:bold;'>Energy Use</span><br><br>
+<span style='font-size:18pt; color:white;'>by End User</span><br><br><br>
+<span style='font-size:14pt; color:white;'>Energy consumption<br> is split evenly<br>between: </span><br><br>
+<b style='font-size:22pt; color:#A8B820;'>29%</b> <span style='font-size:14pt; color:white;'> Transport</span><br>
+<b style='font-size:22pt; color:#A8B820;'>39%</b> <span style='font-size:14pt; color:white;'> Domestic</span><br>
+<b style='font-size:22pt; color:#A8B820;'>32%</b> <span style='font-size:14pt; color:white;'> Industry & Commercial</span>"
+
+# Create the text panel plot
+text_panel <- ggplot() +
+  annotate(
+    "richtext", x = 0, y = 0.5,
+    label = text_content,
+    hjust = 0, vjust = 0.5, # Align text to the left and center vertically
+    label.color = NA, fill = NA # No box around the text
+  ) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = bg_color, color = NA))
+
+# Combine the two plots side-by-side
+final_plot <- text_panel + pie_chart +
+  plot_layout(widths = c(1, 1.2)) # Give the pie chart slightly more space
+
+# Display the final plot
+pie_chart
+```
+## Energy Consumption by Fuel Type
+
+Most energy consumed in the West of England is from petroleum products. The data below is for all energy consumption in the West of England in `r max_year`. 
 
 ```{r energy-by-fuel}
-
 not_other <- c("Electricity",
             "Gas",
             "Petroleum")
@@ -147,8 +331,7 @@ energy_data_weca_max_year_all_sectors_tbl <- energy_data_all_la_tbl |>
   mutate(fuel_type = if_else(fuel %in% not_other, fuel, "Other")) |>
   group_by(fuel_type) |>
   summarise(energy_GTOe = sum(value, na.rm = TRUE)) |>
-  mutate(pct_fuel = (energy_GTOe / sum(energy_GTOe))) |>
-  glimpse()
+  mutate(pct_fuel = (energy_GTOe / sum(energy_GTOe))) 
 ```
 
 
@@ -163,8 +346,7 @@ fa_fuel_tbl <- c(
 
 gt_fuel_tbl <-  energy_data_weca_max_year_all_sectors_tbl |> 
   inner_join(fa_fuel_tbl, by = join_by("fuel_type" == "fuel_type")) |>
-  arrange(desc(pct_fuel)) |> 
-  glimpse()
+  arrange(desc(pct_fuel)) 
 
 fuel_gt <- gt_fuel_tbl |>
   select(fa_icon, fuel_type, pct_fuel) %>%
@@ -186,5 +368,197 @@ fuel_gt <- gt_fuel_tbl |>
   cols_move_to_end(pct_fuel)
 
 fuel_gt
+
+```
+## Home Heating: Fuel Types
+
+Analysis of the main heating fuel type in homes with an Energy Performance Certificate (EPC) in the West of England. The data is current to `r epc_date`. Only aroung 70% of homes in the West of England have an EPC. The main heat classification in the data is not always precisely defined, so the categories below are broad groupings.
+
+```{r fuel-types-home-heating}
+mainheat_category_table <- read_rds("data/mainheat_category_table.rds")
+
+fuel_types_homes_plot_tbl <- epc_domestic_lep_tbl |> 
+  select(MAINHEAT_DESCRIPTION) |> 
+  inner_join(mainheat_category_table, by = join_by("MAINHEAT_DESCRIPTION" == "mainheat")) |>
+  filter(!str_starts(category, "Two")) |> 
+  group_by(category) |> 
+  summarise(n = n()) |>
+  mutate(category = if_else(str_starts(category, "Renewable"), "Renewable inc. heat pumps", category),
+    category = as_factor(category) |> fct_reorder(n)) 
+```
+
+```{r plot-fuel-types-home-heating}
+fuel_types_homes_plot <- 
+fuel_types_homes_plot_tbl |>
+  ggplot(aes(x = category, y = n)) +
+  geom_col(show.legend = FALSE, fill = weca_cols[1]) +
+  coord_flip() +
+  scale_y_continuous(labels = scales::comma) +
+  # scale_fill_manual(values = weca_core_colours[c(1,3,4)]) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+  labs(
+    title = "Main heating fuel type in homes with an EPC",
+    subtitle = glue("West of England homes with an EPC to {epc_date}"),
+    x = NULL,
+    y = "Number of homes",
+    caption = "Source: Ministry of Housing, Communities & Local Government"
+  ) +
+  theme_minimal() +
+  theme(plot.margin = margin(15, 15, 15, 15),
+    axis.text  = element_text(size = 14),
+    axis.title = element_text(size = 16),
+    plot.title = element_text(size = 20, face = "bold"),
+    plot.subtitle = element_text(size = 16))
+
+fuel_types_homes_plot
+```
+
+## Energy Consumption Over Time by Local Authority
+```{r energy-consumption-la-year}
+start_year <- max_year - 9
+
+energy_weca_plot_tbl <- energy_data_all_la_tbl |> 
+  filter(ladcd %in% weca_ns_la_codes,
+  fuel == "All fuels",
+  sector == "Total",
+  year >= start_year
+  ) |> 
+  transmute(year, ladnm, gwh = value * 11.63)  
+```
+
+
+```{r energy-consumption-la-year-plot}
+energy_weca_plot <- 
+energy_weca_plot_tbl |>
+  ggplot(aes(x = year, y = gwh, fill = ladnm)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks = seq(start_year, max_year, by = 1)) +
+  scale_fill_manual(values = weca_cols) +
+  labs(
+    title = "Total energy consumption (GWh)",
+    subtitle = glue("West of England local authorities {start_year} to {max_year}"),
+    x = "Year",
+    y = "GWh",
+    fill = "Local authority",
+    caption = "Source: Sub - national total final energy consumption"
+  ) +
+    coord_flip() +
+  theme_minimal() +
+  theme(axis.text  = element_text(size = 14),
+    axis.title = element_text(size = 16),
+    plot.title = element_text(size = 20, face = "bold"),
+    plot.subtitle = element_text(size = 16),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12))
+energy_weca_plot
+```
+
+## Emissions Over Time by Local Authority
+```{r emissions-by-local-authority-year}
+#| include: false
+emissions_weca_plot_tbl <- ghg_emissions_tbl |> 
+  filter(local_authority_code %in% weca_ns_la_codes,
+  calendar_year >= start_year
+  ) |>
+  select(calendar_year, local_authority, territorial_emissions_kt_co2e) |>
+  group_by(calendar_year, local_authority) |>
+  summarise(total_emissions = sum(territorial_emissions_kt_co2e)) |> invisible()
+
+```
+
+```{r emissions-by-local-authority-year-plot}
+# make a stacked col plot of emissions by local authority and year
+showtext_auto(enable = FALSE)
+emissions_weca_plot <- emissions_weca_plot_tbl |>
+  ggplot(aes(x = calendar_year, y = total_emissions, fill = local_authority)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks = seq(start_year, max_year, by = 1)) +
+  scale_fill_manual(values = weca_cols) +
+  labs(
+    title = quickText("Total territorial emissions (KtCO2e)"),
+    subtitle = glue("West of England local authorities {start_year} to {max_year}"),
+    x = "Year",
+    y = quickText("KtCO2e"),
+    fill = "Local authority",
+    caption = "Source: UK local authority and regional greenhouse gas emissions statistics"
+  ) +
+    coord_flip() +
+  theme_minimal() +
+  theme(axis.text  = element_text(size = 14),
+    axis.title = element_text(size = 16),
+    plot.title = element_text(size = 20, face = "bold"),
+    plot.subtitle = element_text(size = 16),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12))
+emissions_weca_plot
+```
+
+```{r save-all-plots}
+#| include: false
+# 1. Define the output folder
+output_dir <- "plots"
+dir.create(output_dir, showWarnings = FALSE) # Create folder if it doesn't exist
+
+# 2. Find all ggplot objects in the environment
+all_ggplot_objects <- find_objects_by_class("ggplot")
+
+# 3. Loop through the list of plots and save each one
+for (plot_name in names(all_ggplot_objects)) {
+  
+  # Get the plot object
+  plot_obj <- all_ggplot_objects[[plot_name]]
+  
+  # Construct a clean filename
+  file_path <- file.path(output_dir, paste0(plot_name, ".png"))
+  
+  # Save the plot using ggsave
+  ggsave(
+    filename = file_path,
+    plot = plot_obj,
+    width = 8,
+    height = 6,
+    bg = "white",
+    dpi = 300
+  )
+  
+  # Optional: print a message to the console during rendering
+  message(paste("Saved plot:", file_path))
+}
+
+```
+
+```{r save-gt-tables}
+
+#| include: false
+output_dir <- "plots"
+dir.create(output_dir, showWarnings = FALSE) # Create folder if it doesn't exist
+
+# 2. Find all ggplot objects in the environment
+all_gt_objects <- find_objects_by_class("gt_tbl")
+
+# loop through the list of gt objects and save each one
+
+for (table_name in names(all_gt_objects)) {
+  
+  # Get the gt object
+  table_obj <- all_gt_objects[[table_name]]
+  
+  # Construct a clean filename
+  file_path <- file.path(output_dir, paste0(table_name, ".png"))
+  
+  # Save the gt table using gtsave
+  gtsave(
+    data = table_obj,
+    filename = file_path,
+    expand = 10
+  )
+  
+  # Optional: print a message to the console during rendering
+  message(paste("Saved table:", file_path))
+}
 
 ```
