@@ -49,9 +49,9 @@ TABLE_CREATION_QUERIES = [
         "name": "ev_reg_lsoa11_all_tbl",
         "sql": """
             CREATE OR REPLACE TABLE ev_reg_lsoa11_all_tbl AS
-            SELECT lsoa11cd, lsoa11nm, fuel, _2025_q1 AS q1_2025_count
+            SELECT lsoa11cd, lsoa11nm, fuel, _2025_q1 AS _count
             FROM read_csv('data/df_VEH0135.csv', normalize_names=true, ignore_errors=true)
-            WHERE q1_2025_count != '[c]' AND (fuel = 'Battery electric' OR fuel LIKE 'Plug%');
+            WHERE _count != '[c]' AND (fuel = 'Battery electric' OR fuel LIKE 'Plug%');
         """,
     },
     {

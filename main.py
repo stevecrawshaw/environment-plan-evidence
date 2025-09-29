@@ -77,7 +77,7 @@ def main():
 
         # 4. Handle special table creations
         # Subnational electricity consumption
-        elec_yrs = range(2012, 2024)
+        elec_yrs = list(range(2012, 2024))
         elec_path = "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx"
         electricity_la_relation = concat_sheets(elec_yrs, elec_path, con)
         electricity_la_relation.create("electricity_la_tbl")
