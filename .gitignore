@@ -218,5 +218,5 @@ duckdb.exe
 .duckdb
 duckdb
 config.yml
-environment-plan-evidence_files/
+env-plan-evidence_optimised_files/
 font-awesome-4.7.0/
