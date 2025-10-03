@@ -5,6 +5,17 @@ This module stores all the SQL queries and table creation commands
 for the energy data processing pipeline.
 """
 
+# Macro definitions
+MACRO_DEFINITIONS = [
+    {
+        "name": "str_to_sentence_macro",
+        "sql": """
+            CREATE OR REPLACE MACRO str_to_sentence(str) AS 
+            upper(str[1]) || (str[2:]).replace('_', ' ');
+        """,
+    },
+]
+
 TABLE_CREATION_QUERIES = [
     {
         "name": "repd_tbl",
@@ -162,5 +173,30 @@ TABLE_CREATION_QUERIES = [
             VALUE mileage_millions
             );
         """,
+    },
+    {
+        "name": "fuel_sector_lookup_tbl",
+        "sql": """CREATE OR REPLACE TABLE fuel_sector_lookup_tbl AS
+                SELECT 
+                    str_to_sentence(fuel) fuel,
+                    str_to_sentence(sector) sector,
+                    original_string fuel_sector
+                FROM read_csv('fuel_sector.csv');""",
+    },
+    {
+        "name": "energy_la_year_fuel_sector_long_vw",
+        "sql": """
+            CREATE OR REPLACE VIEW energy_la_year_fuel_sector_long_vw AS
+            SELECT
+              el.country_or_region,
+              el.code ladcd,
+              el.local_authority ladnm,
+              el.GTOE gigatonnes_oil_equivalent,
+              el.calendar_year,
+              fl.fuel,
+              fl.sector
+            FROM energy_la_long_tbl el
+            JOIN fuel_sector_lookup_tbl fl
+            USING(fuel_sector);""",
     },
 ]

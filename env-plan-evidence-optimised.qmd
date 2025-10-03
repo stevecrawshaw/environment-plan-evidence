@@ -118,10 +118,6 @@ The primary data sources used in this analysis include: <br> - [Sub - national t
 
 North Somerset council is included in the West of England data throughout this document. The intention is for North Somerset to join the Mayoral Combined Authority in due course.
 
-```{r data-import-files}
-energy_data_all_la_tbl <- read_parquet("data/clean_energy_la_long_tbl.parquet")
-```
-
 ```{r data-import-epc}
 # Connect to the EPC database
 con_epc <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
@@ -155,12 +151,12 @@ dbExecute(con_env, "LOAD SPATIAL")
 
 # Query electricity table
 electricity_la_tbl <- dbGetQuery(con_env, "FROM electricity_la_tbl")
-
+energy_data_all_la_tbl <- dbGetQuery(con_env, "FROM energy_la_year_fuel_sector_long_vw")
 ```
 
 ```{r variables-from-data}
 # Determine the most recent year available in the energy dataset
-max_year <- max(energy_data_all_la_tbl$year)
+max_year <- max(energy_data_all_la_tbl$calendar_year)
 
 # The original if/else was overly complex and used a non-existent function.
 latest_epc_date <- as.Date(max(epc_domestic_lep_tbl$LODGEMENT_DATE))
@@ -224,11 +220,11 @@ energy_data_weca_max_year_all_fuels_tbl <- energy_data_all_la_tbl |>
   filter(
     ladcd %in% weca_ns_la_codes,
     fuel == "All fuels",
-    year == max_year,
+    calendar_year == max_year,
     sector != "Total"
   ) |>
   group_by(sector) |>
-  summarise(energy_GTOe = sum(value, na.rm = TRUE), .groups = "drop") |>
+  summarise(energy_GTOe = sum(gigatonnes_oil_equivalent, na.rm = TRUE), .groups = "drop") |>
   mutate(pct_sector = energy_GTOe / sum(energy_GTOe))
 ```
 
@@ -275,7 +271,7 @@ A pie chart representation of the energy consumption by end user sector is shown
 ```{r energy-sector-pie-chart}
 ## AMENDED: URL updated to download Font Awesome v4.7.0 as required.
 # This ensures the correct font version is used for reproducibility.
-fa_font_path <- "www/fontawesome-webfont.ttf"
+fa_font_path <- "fontawesome/fontawesome-webfont.ttf"
 if (!file.exists(fa_font_path)) {
   dir_create("fontawesome")
   download.file(
@@ -343,13 +339,13 @@ energy_data_weca_max_year_all_sectors_tbl <- energy_data_all_la_tbl |>
   filter(
     ladcd %in% weca_ns_la_codes,
     sector == "Total",
-    year == max_year,
+    calendar_year == max_year,
     fuel != "All fuels"
   ) |>
-  select(fuel, value) |>
+  select(fuel, gigatonnes_oil_equivalent) |>
   mutate(fuel_type = if_else(fuel %in% main_fuels, fuel, "Other")) |>
   group_by(fuel_type) |>
-  summarise(energy_GTOe = sum(value, na.rm = TRUE), .groups = "drop") |>
+  summarise(energy_GTOe = sum(gigatonnes_oil_equivalent, na.rm = TRUE), .groups = "drop") |>
   mutate(pct_fuel = energy_GTOe * 100 / sum(energy_GTOe))
 ```
 
@@ -492,14 +488,14 @@ energy_weca_plot_tbl <- energy_data_all_la_tbl |>
     ladcd %in% weca_ns_la_codes,
     fuel == "All fuels",
     sector == "Total",
-    year >= start_year
+    calendar_year >= start_year
   ) |>
-  transmute(year, ladnm, gwh = value * 11.63)
+  transmute(calendar_year, ladnm, gwh = gigatonnes_oil_equivalent * 11.63)
 ```
 
 ```{r energy-consumption-la-year-plot}
 energy_weca_plot <- energy_weca_plot_tbl |>
-  ggplot(aes(x = year, y = gwh, fill = ladnm)) +
+  ggplot(aes(x = calendar_year, y = gwh, fill = ladnm)) +
   geom_col() +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(breaks = seq(start_year, max_year, by = 1)) +
@@ -542,7 +538,7 @@ emissions_weca_plot <- emissions_weca_plot_tbl |>
     title = "Total territorial emissions (greenhouse gases)",
     subtitle = glue("West of England local authorities, {start_year}-{max_year}"),
     x = "Year",
-    y = "KtCO2e", ## AMENDED: Corrected the call to quickText() which is not a standard function.
+    y = "KtCO2e", 
     fill = "Local authority",
     caption = "Source: UK local authority and regional greenhouse gas emissions statistics"
   ) +
@@ -575,7 +571,6 @@ save_plot <- function(gg_plot, name) {
   )
 }
 
-# Use imap to iterate through the list of plots and save each one
 walk2(all_ggplot_objects, names(all_ggplot_objects), ~ save_plot(.x, .y))
 
 # --- Save all gt table objects ---
@@ -590,8 +585,6 @@ save_table <- function(gt_table, name) {
   )
 }
 
-## AMENDED: Renamed function for consistency and used walk2 for side-effects.
-# The original code had a stray invisible() call which is not needed with imap/walk.
 walk2(all_gt_objects, names(all_gt_objects), ~ save_table(.x, .y))
 ```
 

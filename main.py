@@ -5,8 +5,8 @@ import sys
 
 import duckdb
 
-from queries import TABLE_CREATION_QUERIES
-from utils import check_source_data, concat_sheets
+from queries import MACRO_DEFINITIONS, TABLE_CREATION_QUERIES
+from utils import check_source_data, concat_energy_sheets, concat_sheets
 
 # --- Configuration ---
 DB_FILE = "data/regional_energy.duckdb"
@@ -20,6 +20,7 @@ REQUIRED_FILES = [
     "data/df_VEH0135.csv",
     "data/df_VEH0145.csv",
     "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx",
+    "data/Subnational_total_final_energy_consumption_2005_2023.xlsx",
     "data/Sub-regional_fuel_poverty_statistics_2023.xlsx",
     "data/LSOA11_UTLA21_EW_LU.xlsx",
     "data/all_renewables_tbl.csv",
@@ -57,31 +58,26 @@ def main():
         con.sql("LOAD SPATIAL;")
         print("✅ Loaded HTTPFS and SPATIAL extensions.")
 
-        # 3. Execute all standard "CREATE TABLE" queries
-        vehicle_table_names = {
-            "veh0135_latest_tbl",
-            "veh0145_latest_tbl",
-            "veh0125_latest_tbl",
-        }
+        # Create macros
+        for macro_info in MACRO_DEFINITIONS:
+            macro_name = macro_info["name"]
+            con.sql(macro_info["sql"])
+            print(f"  - Successfully created macro: {macro_name}")
 
-        for query_info in TABLE_CREATION_QUERIES:
-            table_name = query_info["name"]
-            sql_query = query_info["sql"]
-
-            # Handle parameterized vehicle queries
-            if table_name in vehicle_table_names:
-                sql_query = sql_query.format(time_period=VEHICLE_DATA_TIME_PERIOD)
-
-            con.sql(sql_query)
-            print(f"  - Successfully executed query for table: {table_name}")
-
-        # 4. Handle special table creations
+        # 3. Handle special table creations
         # Subnational electricity consumption
         elec_yrs = list(range(2012, 2024))
         elec_path = "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx"
         electricity_la_relation = concat_sheets(elec_yrs, elec_path, con)
         electricity_la_relation.create("electricity_la_tbl")
         print("  - Successfully created table: electricity_la_tbl")
+
+        # Subnational total final energy consumption
+        energy_yrs = list(range(2005, 2024))
+        energy_path = "data/Subnational_total_final_energy_consumption_2005_2023.xlsx"
+        energy_la_relation = concat_energy_sheets(energy_yrs, energy_path, con)
+        energy_la_relation.create("energy_la_long_tbl")
+        print("  - Successfully created table: energy_la_long_tbl")
 
         # Emissions and EPC data from external DB
         con.sql(f"ATTACH '{EXTERNAL_DB_PATH}' (READ_ONLY);")
@@ -95,6 +91,23 @@ def main():
         print(
             "  - Successfully created tables from external DB: emissions_tbl, epc_domestic_cauth_tbl"
         )
+        # 4. Run the standard table creation queries including
+        #  the view creation which relies on special tables above
+        vehicle_table_names = {
+            "veh0135_latest_tbl",
+            "veh0145_latest_tbl",
+            "veh0125_latest_tbl",
+        }
+        for query_info in TABLE_CREATION_QUERIES:
+            table_name = query_info["name"]
+            sql_query = query_info["sql"]
+
+            # Handle parameterized vehicle queries
+            if table_name in vehicle_table_names:
+                sql_query = sql_query.format(time_period=VEHICLE_DATA_TIME_PERIOD)
+
+            con.sql(sql_query)
+            print(f"  - Successfully executed query for table: {table_name}")
 
         # 5. Commit the transaction if all steps succeed
         con.commit()
