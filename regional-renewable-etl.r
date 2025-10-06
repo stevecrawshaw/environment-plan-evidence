@@ -1,8 +1,7 @@
 pacman::p_load(tidyverse, glue, janitor, duckdb, DBI, readxl)
 
-sheets <- excel_sheets(
-  "data/Renewable_electricity_by_local_authority_2014_-_2023.xlsx"
-)
+path <- "data/Renewable_electricity_by_local_authority_2014_-_2024.xlsx"
+sheets <- excel_sheets(path)
 
 # different sheets have different header rows to skip
 (ingest_sheets_skip3 <- sheets |> keep(~ str_detect(.x, "Sites|Capacity")))
@@ -12,11 +11,7 @@ skip_sc <- 3
 skip_gen <- 4
 
 sites_capacity_tbl <- map(ingest_sheets_skip3, \(x) {
-  read_excel(
-    "data/Renewable_electricity_by_local_authority_2014_-_2023.xlsx",
-    sheet = x,
-    skip = skip_sc
-  ) |>
+  read_excel(path, sheet = x, skip = skip_sc) |>
     clean_names() |>
     rename_with(~ str_remove(.x, "_note.+")) |>
     mutate(source = x)
@@ -29,18 +24,13 @@ sites_capacity_tbl <- map(ingest_sheets_skip3, \(x) {
   select(-total)
 
 generation_tbl <- map(generation_sheets, \(x) {
-  read_excel(
-    "data/Renewable_electricity_by_local_authority_2014_-_2023.xlsx",
-    sheet = x,
-    skip = skip_gen,
-    col_types = "text"
-  ) |>
+  read_excel(path, sheet = x, skip = skip_gen, col_types = "text") |>
     clean_names() |>
     rename_with(~ str_remove(.x, "_note.+")) |>
     mutate(source = x)
 }) |>
   bind_rows() |>
-  select(-x19, -total) |>
+  select(-total) |>
   filter(str_starts(local_authority_code, "E0")) |>
   mutate(across(5:17, as.numeric)) |>
   glimpse()

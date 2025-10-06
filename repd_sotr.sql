@@ -17,6 +17,7 @@ DESCRIBE raw_dukes_tbl;
 
 -- get latest year for use in query
 SET VARIABLE max_year = (SELECT max(year) FROM read_csv('data/all_renewables_tbl.csv'));
+SELECT getvariable('max_year');
 
 -- get the CAPACITY data from Renewable_electricity_by_local_authority_2014_-_2023.xlsx
 -- which has been pre - processed in R
@@ -52,6 +53,7 @@ SET VARIABLE latest_year_total_renewable_capacity =
 FROM latest_year_lep_long_tbl
 WHERE capacity != 'NA');
 
+SELECT getvariable('latest_year_total_renewable_capacity');
 -- ATTACH '' AS weca_postgres (TYPE POSTGRES, SECRET weca_postgres);
 
 -- SELECT * FROM weca_postgres.information_schema.tables;

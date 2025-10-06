@@ -40,6 +40,8 @@ generation_cauth_wide_tbl <- renewable_data_raw_tbl |>
   inner_join(ca_la_tbl, by = join_by(local_authority_code == ladcd)) |>
   glimpse()
 
+min_year <- min(generation_cauth_wide_tbl$year)
+max_year <- max(generation_cauth_wide_tbl$year)
 
 generation_long_tbl <-
   generation_cauth_wide_tbl |>
@@ -78,7 +80,7 @@ generation_plot_tbl <- generation_long_tbl |>
   glimpse()
 
 prop_renewables_lep_latest_tbl <- generation_long_tbl |>
-  filter(year == max(year), cauthnm == "West of England") |>
+  filter(year == max_year, cauthnm == "West of England") |>
   arrange(desc(generation_mwh)) |>
   mutate(
     renewable_source = str_replace_all(renewable_type, "_", " ") |>
@@ -106,7 +108,7 @@ latest_renewable_by_source_la_plot <-
     title = "West of England Renewable Energy Generation by Source",
     subtitle = paste0(
       "Total Renewable Energy Generation (MWh) in ",
-      max(generation_long_tbl$year)
+      max_year
     ),
     x = "Renewable Source",
     y = "Total Generation (MWh)",
@@ -114,6 +116,8 @@ latest_renewable_by_source_la_plot <-
     caption = "Data Source: DESNZ"
   ) +
   scale_y_continuous(labels = comma)
+
+latest_renewable_by_source_la_plot
 
 latest_renewable_by_source_la_plot |>
   ggsave(
@@ -128,24 +132,29 @@ latest_renewable_by_source_la_plot |>
 lep_renewable_plot_data <-
   generation_plot_tbl |>
   filter(cauthnm == "West of England") |>
+  mutate(total_generation_gwh = total_generation / 1000) |>
   arrange(year) |>
   glimpse()
 
 lep_renewable_plot <- lep_renewable_plot_data |>
-  ggplot(aes(x = year, y = total_generation)) +
+  ggplot(aes(x = year, y = total_generation_gwh)) +
   geom_col(fill = west_green) +
   theme_minimal() +
   scale_y_continuous(labels = comma) +
-  scale_x_continuous(breaks = seq(2014, 2023, by = 1)) +
+  scale_x_continuous(breaks = seq(min_year, max_year, by = 1)) +
   labs(
     title = "West of England Renewable Energy Generation",
-    subtitle = "Total Renewable Energy Generation (MWh)",
+    subtitle = "Total Renewable Energy Generation (GWh)",
     x = "Year",
-    y = "Total Generation (MWh)",
+    y = "Total Generation (GWh)",
     caption = "Data Source: DESNZ"
   ) +
-  theme(axis.text.x = element_text(size = 12))
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 14)
+  )
 
+lep_renewable_plot
 
 ggsave(
   plot = lep_renewable_plot,
@@ -172,5 +181,7 @@ generation_plot_tbl |>
     caption = "Data Source: DESNZ"
   ) +
   theme(legend.position = "bottom")
+
 # +
 #   ggsave("outputs/renewable_generation_by_cauth.png", width = 10, height = 6)
+DBI::dbDisconnect(con, shutdown = TRUE)

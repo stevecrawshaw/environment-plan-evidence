@@ -44,11 +44,16 @@ def concat_sheets(yrs: list[int], path: str, con: duckdb.DuckDBPyConnection):
     """
     if not yrs:
         return None
+    relations_list = []
 
     relations_list = [
         con.sql(f"""
-            SELECT *
-            FROM read_xlsx('{path}', header=true, normalize_names=true, sheet='{yr}', range='A5:X374')
+            SELECT *, {yr} AS calendar_year
+            FROM read_xlsx('{path}',
+            header=true,
+            normalize_names=true,
+            sheet='{yr}',
+            range='A5:X374')
             WHERE code LIKE 'E0%';
         """)
         for yr in yrs
