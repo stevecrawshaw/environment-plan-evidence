@@ -12,6 +12,7 @@ dependencies = [
     "jupyter>=1.1.1",
     "pyarrow>=21.0.0",
     "sqlalchemy>=2.0.43",
+    "fastexcel>=0.16.0",
 ]
 
 [dependency-groups]

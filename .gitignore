@@ -220,3 +220,4 @@ duckdb
 config.yml
 env-plan-evidence_optimised_files/
 font-awesome-4.7.0/
+polars-llm-docs.md
