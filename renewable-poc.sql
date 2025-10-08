@@ -1,5 +1,5 @@
 duckdb
-
+-- script to test extracting data from multiple sheets in an excel file
 -- Get data from sheets named 
 -- set up variables for dynamic sheet names
 SET VARIABLE year = 2024;
@@ -39,3 +39,24 @@ NAME energy_source
 VALUE val)
 SELECT * EXCLUDE(val), if(val[1] = '[', NULL, val)::INTEGER AS value
 FROM long_ren_sample_sites_tbl WHERE value IS NOT NULL;
+
+
+-- create a view for the renewables dataset
+-- EXPORT TO motherduck
+
+../lnrs/./duckdb
+ATTACH 'data/regional_energy.duckdb' as re;
+PIVOT re.renewable_la_long_tbl
+ON  energy_source || '_' || lower("type") || '_' || units
+USING SUM("value")
+ORDER BY local_authority_code, calendar_year;
+ATTACH 'md:';
+
+DROP DATABASE regional_energy CASCADE;
+-- md authentication is in the .env variable
+
+CREATE OR REPLACE DATABASE regional_energy FROM re;
+
+DETACH re;
+DETACH md;
+

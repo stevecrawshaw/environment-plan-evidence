@@ -6,11 +6,15 @@ import sys
 import duckdb
 
 from queries import MACRO_DEFINITIONS, TABLE_CREATION_QUERIES
-from utils import check_source_data, concat_energy_sheets, concat_sheets
+from utils import (
+    check_source_data,
+    concat_electricity_sheets,
+    concat_energy_sheets,
+    concat_renewable_sheets,
+)
 
 # --- Configuration ---
 DB_FILE = "data/regional_energy.duckdb"
-EXTERNAL_DB_PATH = "../mca-data/data/ca_epc.duckdb"
 VEHICLE_DATA_TIME_PERIOD = "_2025_q1"  # Current time period for vehicle data
 
 REQUIRED_FILES = [
@@ -27,7 +31,7 @@ REQUIRED_FILES = [
     "data/regional_carbon_intensity.csv",
     "data/carbon_intensity_categories.csv",
     "data/tra8901-miles-by-local-authority.xlsx",
-    EXTERNAL_DB_PATH,
+    "data/Renewable_electricity_by_local_authority_2014_-_2024.xlsx",
 ]
 
 
@@ -68,7 +72,7 @@ def main():
         # Subnational electricity consumption
         elec_yrs = list(range(2012, 2024))
         elec_path = "data/Subnational_electricity_consumption_statistics_2005-2023.xlsx"
-        electricity_la_relation = concat_sheets(elec_yrs, elec_path, con)
+        electricity_la_relation = concat_electricity_sheets(elec_yrs, elec_path, con)
         electricity_la_relation.create("electricity_la_tbl")
         print("  - Successfully created table: electricity_la_tbl")
 
@@ -79,18 +83,18 @@ def main():
         energy_la_relation.create("energy_la_long_tbl")
         print("  - Successfully created table: energy_la_long_tbl")
 
-        # Emissions and EPC data from external DB
-        con.sql(f"ATTACH '{EXTERNAL_DB_PATH}' (READ_ONLY);")
-        con.sql(
-            "CREATE OR REPLACE TABLE emissions_tbl AS SELECT * FROM ca_epc.emissions_tbl;"
+        # Renewable electricity by local authority
+        renewable_yrs = list(range(2014, 2025))
+        renewable_types = ["Generation", "Capacity", "Sites"]
+        renewable_path = (
+            "data/Renewable_electricity_by_local_authority_2014_-_2024.xlsx"
         )
-        con.sql(
-            "CREATE OR REPLACE TABLE epc_domestic_cauth_tbl AS FROM ca_epc.epc_domestic_vw;"
+        renewable_la_relation = concat_renewable_sheets(
+            renewable_yrs, renewable_types, renewable_path, con
         )
-        con.sql("DETACH ca_epc;")
-        print(
-            "  - Successfully created tables from external DB: emissions_tbl, epc_domestic_cauth_tbl"
-        )
+        renewable_la_relation.create("renewable_la_long_tbl")
+        print("  - Successfully created table: renewable_la_long_tbl")
+
         # 4. Run the standard table creation queries including
         #  the view creation which relies on special tables above
         vehicle_table_names = {
