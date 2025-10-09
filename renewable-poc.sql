@@ -46,15 +46,9 @@ FROM long_ren_sample_sites_tbl WHERE value IS NOT NULL;
 
 ../lnrs/./duckdb
 ATTACH 'data/regional_energy.duckdb' as re;
-PIVOT re.renewable_la_long_tbl
-ON  energy_source || '_' || lower("type") || '_' || units
-USING SUM("value")
-ORDER BY local_authority_code, calendar_year;
 ATTACH 'md:';
-
 DROP DATABASE regional_energy CASCADE;
 -- md authentication is in the .env variable
-
 CREATE OR REPLACE DATABASE regional_energy FROM re;
 
 DETACH re;
