@@ -2,3 +2,7 @@
   quarto-pub:
     - id: 4bd402da-a3fd-4dc0-9b0d-f7b4e031e683
       url: https://stevecrawshaw.quarto.pub/using-an-llm-to-classify-domestic-fuel-types
+- source: env-plan-evidence-optimised.qmd
+  quarto-pub:
+    - id: 42e6817d-2551-4eea-b135-8022752d00df
+      url: https://stevecrawshaw.quarto.pub/evidence-base-for-2025-environment-plan
