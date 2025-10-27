@@ -3,7 +3,16 @@
 This repo contains scripts and data for a few tasks:
 
 1. ETL processes to gather, clean and transform energy related data from various sources. and store in a duckdb database which is pushed to Motherduck.
-2. Analysis scripts to perform regional environmental analysis using the cleaned data. and create an alalysis report in quarto which is published to quarto - pub. Images are also generated to populate a report.
+
+`ATTACH 'md:_share/regional_energy/996c823f-64d2-4378-8723-6f0f8e357d97';`
+
+- The ETL process is implemented in 3 scripts in python.
+    - main.py : Orchestrates the ETL process.
+    - queries.py : Contains SQL queries to extract data from source files.
+    - utils.py : Utility functions for data cleaning and transformation.
+Generally duckdb's python relational API is used for data manipulation.
+
+2. Analysis scripts to perform regional environmental analysis using the cleaned data. and create an analysis report in quarto which is published to quarto - pub. Images are also generated to populate a report. The analysis is implemented using R in a quarto document env-plan-evidence-optimised.qmd which is rendered to HTML and [published on quarto-pub](https://stevecrawshaw.quarto.pub/evidence-base-for-2025-environment-plan/):
 
 # Original Brief:
 

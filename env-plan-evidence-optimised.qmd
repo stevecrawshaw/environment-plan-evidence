@@ -121,6 +121,7 @@ North Somerset council is included in the West of England data throughout this d
 ```{r data-import-epc}
 # Connect to the EPC database
 con_epc <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
+invisible(dbExecute(con_epc, "INSTALL spatial"))
 invisible(dbExecute(con_epc, "LOAD spatial"))
 
 # Query necessary tables
@@ -224,9 +225,37 @@ energy_data_weca_max_year_all_fuels_tbl <- energy_data_all_la_tbl |>
     sector != "Total"
   ) |>
   group_by(sector) |>
-  summarise(energy_GTOe = sum(gigatonnes_oil_equivalent, na.rm = TRUE), .groups = "drop") |>
-  mutate(pct_sector = energy_GTOe / sum(energy_GTOe))
+  summarise(energy_GTOe = sum(gigatonnes_oil_equivalent, na.rm = TRUE), .groups = "drop",) |>
+  mutate(pct_sector = energy_GTOe / sum(energy_GTOe),
+  energy_gwh = energy_GTOe * 11.63)
 ```
+
+```{r energy-total-consumption-weca}
+total_energy_weca <- sum(energy_data_weca_max_year_all_fuels_tbl$energy_gwh)
+
+min_year <- min(energy_data_all_la_tbl$calendar_year)
+
+change_energy_consumption_weca <- energy_data_all_la_tbl |>
+  filter(
+    ladcd %in% weca_ns_la_codes,
+    fuel == "All fuels",
+    sector == "Total",
+    calendar_year %in% c(min_year, max_year)
+  ) |>
+  group_by(calendar_year) |>
+  summarise(total_energy_gwh = sum(gigatonnes_oil_equivalent * 11.63), .groups = "drop") |>
+  arrange(calendar_year) |>
+  mutate(
+    change_gwh = total_energy_gwh - lag(total_energy_gwh),
+    pct_change = change_gwh / lag(total_energy_gwh) * 100
+  )
+
+change_pct_energy_weca <- round(change_energy_consumption_weca$pct_change[2])
+
+```
+
+Total energy consumption in the West of England in `r max_year` was approximately `r scales::comma(round(total_energy_weca, 0))` GWh. This is a drop of `r abs(change_pct_energy_weca)`% since `r min_year`.
+
 
 ```{r gt-table-energy-by-end-user}
 #| echo: FALSE
@@ -549,6 +578,38 @@ emissions_weca_plot <- emissions_weca_plot_tbl |>
   theme_weca_bar()
 
 emissions_weca_plot
+```
+
+```{r emissions-breakdown-by-sector}
+sector_emissions_weca_max_year_tbl <-
+ghg_emissions_tbl |>
+  filter(
+    local_authority_code %in% weca_ns_la_codes,
+    calendar_year == max_year,
+  ) |>
+  group_by(la_ghg_sector) |>
+  summarise(total_emissions_kt_co2e = sum(territorial_emissions_kt_co2e), .groups = "drop") |> 
+  mutate(pct = total_emissions_kt_co2e / sum(total_emissions_kt_co2e)) 
+
+```
+
+```{r emissions_by_sector_gt}
+sector_emission_proportion_gt <- sector_emissions_weca_max_year_tbl |> 
+  gt() |>
+  fmt_number(columns = total_emissions_kt_co2e, decimals = 0  ) |>
+  fmt_percent(columns = pct, decimals = 0) |>
+  cols_label(
+    la_ghg_sector = "GHG Sector",
+    total_emissions_kt_co2e = "Total emissions (KtCO2e)",
+    pct = "Percentage of total"
+  ) |>
+  tab_header(
+    title = "Territorial emissions by GHG sector",
+    subtitle = glue("West of England, {max_year}")
+  ) |>
+  tab_source_note(source_note = "Source: UK local authority and regional greenhouse gas emissions statistics") |>
+  tab_options(table.font.size = px(14))
+
 ```
 
 ```{r save-all-plots-and-tables}

@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Steve Crawshaw">
-<meta name="dcterms.date" content="2025-10-13">
+<meta name="dcterms.date" content="2025-10-27">
 <meta name="keywords" content="Carbon Reduction, Energy Efficiency, Regional Emissions">
 
 <title>Evidence base for 2025 Environment Plan</title>
@@ -132,7 +132,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 13, 2025</p>
+      <p class="date">October 27, 2025</p>
     </div>
   </div>
   
@@ -197,27 +197,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <summary>Show/Hide Code</summary>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Connect to the EPC database</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>con_epc <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(duckdb<span class="sc">::</span><span class="fu">duckdb</span>(<span class="st">"../mca-data/data/ca_epc.duckdb"</span>))</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">invisible</span>(<span class="fu">dbExecute</span>(con_epc, <span class="st">"LOAD spatial"</span>))</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Query necessary tables</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>ca_la_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ca_la_tbl"</span>)</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>ghg_emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ghg_emissions_tbl"</span>)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM emissions_tbl"</span>)</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>epc_domestic_lep_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_domestic_lep_vw"</span>)</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>epc_non_domestic_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_non_domestic_vw"</span>)</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Get names and codes for WECA and North Somerset local authorities</span></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>weca_ns_la_codes <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> </span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(ladcd)</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>weca_ns_la_names <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> </span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(ladnm)</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a named vector of 4 colours for plots</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>weca_palette_4 <span class="ot">&lt;-</span> weca_primary_palette[<span class="dv">2</span><span class="sc">:</span><span class="dv">5</span>] <span class="sc">|&gt;</span></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_names</span>(weca_ns_la_names)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">invisible</span>(<span class="fu">dbExecute</span>(con_epc, <span class="st">"INSTALL spatial"</span>))</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">invisible</span>(<span class="fu">dbExecute</span>(con_epc, <span class="st">"LOAD spatial"</span>))</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Query necessary tables</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>ca_la_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ca_la_tbl"</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>ghg_emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM ghg_emissions_tbl"</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>emissions_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM emissions_tbl"</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>epc_domestic_lep_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_domestic_lep_vw"</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>epc_non_domestic_tbl <span class="ot">&lt;-</span> <span class="fu">dbGetQuery</span>(con_epc, <span class="st">"FROM epc_non_domestic_vw"</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Get names and codes for WECA and North Somerset local authorities</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>weca_ns_la_codes <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(ladcd)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>weca_ns_la_names <span class="ot">&lt;-</span> ca_la_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cauthnm <span class="sc">==</span> <span class="st">"West of England"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(ladnm)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a named vector of 4 colours for plots</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>weca_palette_4 <span class="ot">&lt;-</span> weca_primary_palette[<span class="dv">2</span><span class="sc">:</span><span class="dv">5</span>] <span class="sc">|&gt;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_names</span>(weca_ns_la_names)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
@@ -293,24 +294,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 data-number="4" class="anchored" data-anchor-id="energy-consumption-and-fuel-types"><span class="header-section-number">4</span> Energy Consumption and Fuel Types</h2>
 <p>Transport uses the largest share of energy in the West of England, closely followed by domestic and then industry, commercial and other users. The data below is for all energy consumption in the West of England in 2023. Almost all transport energy use is from petroleum products.</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>total_energy_weca <span class="ot">&lt;-</span> <span class="fu">sum</span>(energy_data_weca_max_year_all_fuels_tbl<span class="sc">$</span>energy_gwh)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>min_year <span class="ot">&lt;-</span> <span class="fu">min</span>(energy_data_all_la_tbl<span class="sc">$</span>calendar_year)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>change_energy_consumption_weca <span class="ot">&lt;-</span> energy_data_all_la_tbl <span class="sc">|&gt;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    ladcd <span class="sc">%in%</span> weca_ns_la_codes,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    fuel <span class="sc">==</span> <span class="st">"All fuels"</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    sector <span class="sc">==</span> <span class="st">"Total"</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    calendar_year <span class="sc">%in%</span> <span class="fu">c</span>(min_year, max_year)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(calendar_year) <span class="sc">|&gt;</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">total_energy_gwh =</span> <span class="fu">sum</span>(gigatonnes_oil_equivalent <span class="sc">*</span> <span class="fl">11.63</span>), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(calendar_year) <span class="sc">|&gt;</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">change_gwh =</span> total_energy_gwh <span class="sc">-</span> <span class="fu">lag</span>(total_energy_gwh),</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_change =</span> change_gwh <span class="sc">/</span> <span class="fu">lag</span>(total_energy_gwh) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>change_pct_energy_weca <span class="ot">&lt;-</span> <span class="fu">round</span>(change_energy_consumption_weca<span class="sc">$</span>pct_change[<span class="dv">2</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Total energy consumption in the West of England in 2023 was approximately 21,514 GWh. This is a drop of 19% since 2005.</p>
+<div class="cell">
 <div class="cell-output-display">
-<div id="vwxobroqua" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#vwxobroqua table {
+<div id="usupchykhe" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#usupchykhe table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#vwxobroqua thead, #vwxobroqua tbody, #vwxobroqua tfoot, #vwxobroqua tr, #vwxobroqua td, #vwxobroqua th {
+#usupchykhe thead, #usupchykhe tbody, #usupchykhe tfoot, #usupchykhe tr, #usupchykhe td, #usupchykhe th {
   border-style: none;
 }
 
-#vwxobroqua p {
+#usupchykhe p {
   margin: 0;
   padding: 0;
 }
 
-#vwxobroqua .gt_table {
+#usupchykhe .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -336,12 +363,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-left-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_caption {
+#usupchykhe .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#vwxobroqua .gt_title {
+#usupchykhe .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -353,7 +380,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-bottom-width: 0;
 }
 
-#vwxobroqua .gt_subtitle {
+#usupchykhe .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -365,7 +392,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-top-width: 0;
 }
 
-#vwxobroqua .gt_heading {
+#usupchykhe .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -377,13 +404,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-right-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_bottom_border {
+#usupchykhe .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_col_headings {
+#usupchykhe .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -398,7 +425,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-right-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_col_heading {
+#usupchykhe .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -418,7 +445,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   overflow-x: hidden;
 }
 
-#vwxobroqua .gt_column_spanner_outer {
+#usupchykhe .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -430,15 +457,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 4px;
 }
 
-#vwxobroqua .gt_column_spanner_outer:first-child {
+#usupchykhe .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#vwxobroqua .gt_column_spanner_outer:last-child {
+#usupchykhe .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#vwxobroqua .gt_column_spanner {
+#usupchykhe .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -450,11 +477,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   width: 100%;
 }
 
-#vwxobroqua .gt_spanner_row {
+#usupchykhe .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#vwxobroqua .gt_group_heading {
+#usupchykhe .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -480,7 +507,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   text-align: left;
 }
 
-#vwxobroqua .gt_empty_group_heading {
+#usupchykhe .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -495,15 +522,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   vertical-align: middle;
 }
 
-#vwxobroqua .gt_from_md > :first-child {
+#usupchykhe .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#vwxobroqua .gt_from_md > :last-child {
+#usupchykhe .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#vwxobroqua .gt_row {
+#usupchykhe .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -522,7 +549,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   overflow-x: hidden;
 }
 
-#vwxobroqua .gt_stub {
+#usupchykhe .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -535,7 +562,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 5px;
 }
 
-#vwxobroqua .gt_stub_row_group {
+#usupchykhe .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -549,15 +576,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   vertical-align: top;
 }
 
-#vwxobroqua .gt_row_group_first td {
+#usupchykhe .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#vwxobroqua .gt_row_group_first th {
+#usupchykhe .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#vwxobroqua .gt_summary_row {
+#usupchykhe .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -567,16 +594,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 5px;
 }
 
-#vwxobroqua .gt_first_summary_row {
+#usupchykhe .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_first_summary_row.thick {
+#usupchykhe .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#vwxobroqua .gt_last_summary_row {
+#usupchykhe .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -586,7 +613,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-bottom-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_grand_summary_row {
+#usupchykhe .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -596,7 +623,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 5px;
 }
 
-#vwxobroqua .gt_first_grand_summary_row {
+#usupchykhe .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -606,7 +633,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-top-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_last_grand_summary_row_top {
+#usupchykhe .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -616,11 +643,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-bottom-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_striped {
+#usupchykhe .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#vwxobroqua .gt_table_body {
+#usupchykhe .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -629,7 +656,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-bottom-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_footnotes {
+#usupchykhe .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -643,7 +670,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-right-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_footnote {
+#usupchykhe .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -652,7 +679,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 5px;
 }
 
-#vwxobroqua .gt_sourcenotes {
+#usupchykhe .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -666,7 +693,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   border-right-color: #D3D3D3;
 }
 
-#vwxobroqua .gt_sourcenote {
+#usupchykhe .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -674,72 +701,72 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   padding-right: 5px;
 }
 
-#vwxobroqua .gt_left {
+#usupchykhe .gt_left {
   text-align: left;
 }
 
-#vwxobroqua .gt_center {
+#usupchykhe .gt_center {
   text-align: center;
 }
 
-#vwxobroqua .gt_right {
+#usupchykhe .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#vwxobroqua .gt_font_normal {
+#usupchykhe .gt_font_normal {
   font-weight: normal;
 }
 
-#vwxobroqua .gt_font_bold {
+#usupchykhe .gt_font_bold {
   font-weight: bold;
 }
 
-#vwxobroqua .gt_font_italic {
+#usupchykhe .gt_font_italic {
   font-style: italic;
 }
 
-#vwxobroqua .gt_super {
+#usupchykhe .gt_super {
   font-size: 65%;
 }
 
-#vwxobroqua .gt_footnote_marks {
+#usupchykhe .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#vwxobroqua .gt_asterisk {
+#usupchykhe .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#vwxobroqua .gt_indent_1 {
+#usupchykhe .gt_indent_1 {
   text-indent: 5px;
 }
 
-#vwxobroqua .gt_indent_2 {
+#usupchykhe .gt_indent_2 {
   text-indent: 10px;
 }
 
-#vwxobroqua .gt_indent_3 {
+#usupchykhe .gt_indent_3 {
   text-indent: 15px;
 }
 
-#vwxobroqua .gt_indent_4 {
+#usupchykhe .gt_indent_4 {
   text-indent: 20px;
 }
 
-#vwxobroqua .gt_indent_5 {
+#usupchykhe .gt_indent_5 {
   text-indent: 25px;
 }
 
-#vwxobroqua .katex-display {
+#usupchykhe .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#vwxobroqua div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#usupchykhe div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -804,61 +831,61 @@ Industry
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="do">## AMENDED: URL updated to download Font Awesome v4.7.0 as required.</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># This ensures the correct font version is used for reproducibility.</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>fa_font_path <span class="ot">&lt;-</span> <span class="st">"fontawesome/fontawesome-webfont.ttf"</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(fa_font_path)) {</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_create</span>(<span class="st">"fontawesome"</span>)</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">download.file</span>(</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"https://raw.githubusercontent.com/FortAwesome/Font-Awesome/v4.7.0/fonts/fontawesome-webfont.ttf"</span>,</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">destfile =</span> fa_font_path,</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">mode =</span> <span class="st">"wb"</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="fu">font_add</span>(<span class="at">family =</span> <span class="st">"fontawesome"</span>, <span class="at">regular =</span> fa_font_path)</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Enable showtext for this chunk</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>()</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare data for plotting</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>pie_data_tbl <span class="ot">&lt;-</span> energy_data_weca_max_year_all_fuels_tbl <span class="sc">|&gt;</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(sector, pct_sector) <span class="sc">|&gt;</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">value =</span> <span class="fu">round</span>(pct_sector <span class="sc">*</span> <span class="dv">100</span>),</span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">icon =</span> <span class="fu">case_when</span>(</span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Domestic"</span> <span class="sc">~</span> <span class="st">"\uf015"</span>, <span class="co"># fa-home</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Industrial commercial and other"</span> <span class="sc">~</span> <span class="st">"\uf275"</span>, <span class="co"># fa-industry</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Transport"</span> <span class="sc">~</span> <span class="st">"\uf1b9"</span> <span class="co"># fa-car</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arrange for consistent plotting order</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(sector, <span class="fu">c</span>(<span class="st">"Industry commercial and other"</span>, <span class="st">"Transport"</span>, <span class="st">"Domestic"</span>))) <span class="sc">|&gt;</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">y_pos =</span> <span class="fu">cumsum</span>(value) <span class="sc">-</span> <span class="fl">0.5</span> <span class="sc">*</span> value,</span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">label_text =</span> <span class="fu">paste0</span>(value, <span class="st">"%"</span>)</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Define colours for the plot</span></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>bg_color <span class="ot">&lt;-</span> <span class="st">"#1A2A3A"</span></span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>line_color <span class="ot">&lt;-</span> <span class="st">"#A8B820"</span></span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the plot</span></span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>pie_chart <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pie_data_tbl, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> value)) <span class="sc">+</span></span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> <span class="fl">1.8</span>, <span class="at">color =</span> line_color, <span class="at">fill =</span> bg_color, <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fl">3.1</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> label_text), <span class="at">color =</span> line_color, <span class="at">fontface =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>) <span class="sc">+</span></span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> icon), <span class="at">family =</span> <span class="st">"fontawesome"</span>, <span class="at">size =</span> <span class="dv">15</span>, <span class="at">color =</span> line_color) <span class="sc">+</span></span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_polar</span>(<span class="at">theta =</span> <span class="st">"y"</span>, <span class="at">start =</span> pi <span class="sc">/</span> <span class="dv">2</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">3.2</span>)) <span class="sc">+</span></span>
-<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
-<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>),</span>
-<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>)</span>
-<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Disable showtext after the plot is created</span></span>
-<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>(<span class="at">enable =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>pie_chart</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="do">## AMENDED: URL updated to download Font Awesome v4.7.0 as required.</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># This ensures the correct font version is used for reproducibility.</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>fa_font_path <span class="ot">&lt;-</span> <span class="st">"fontawesome/fontawesome-webfont.ttf"</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(fa_font_path)) {</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_create</span>(<span class="st">"fontawesome"</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">download.file</span>(</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"https://raw.githubusercontent.com/FortAwesome/Font-Awesome/v4.7.0/fonts/fontawesome-webfont.ttf"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">destfile =</span> fa_font_path,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">mode =</span> <span class="st">"wb"</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="fu">font_add</span>(<span class="at">family =</span> <span class="st">"fontawesome"</span>, <span class="at">regular =</span> fa_font_path)</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Enable showtext for this chunk</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>()</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare data for plotting</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>pie_data_tbl <span class="ot">&lt;-</span> energy_data_weca_max_year_all_fuels_tbl <span class="sc">|&gt;</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(sector, pct_sector) <span class="sc">|&gt;</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">value =</span> <span class="fu">round</span>(pct_sector <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">icon =</span> <span class="fu">case_when</span>(</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Domestic"</span> <span class="sc">~</span> <span class="st">"\uf015"</span>, <span class="co"># fa-home</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Industrial commercial and other"</span> <span class="sc">~</span> <span class="st">"\uf275"</span>, <span class="co"># fa-industry</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>      sector <span class="sc">==</span> <span class="st">"Transport"</span> <span class="sc">~</span> <span class="st">"\uf1b9"</span> <span class="co"># fa-car</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arrange for consistent plotting order</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(sector, <span class="fu">c</span>(<span class="st">"Industry commercial and other"</span>, <span class="st">"Transport"</span>, <span class="st">"Domestic"</span>))) <span class="sc">|&gt;</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">y_pos =</span> <span class="fu">cumsum</span>(value) <span class="sc">-</span> <span class="fl">0.5</span> <span class="sc">*</span> value,</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">label_text =</span> <span class="fu">paste0</span>(value, <span class="st">"%"</span>)</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Define colours for the plot</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>bg_color <span class="ot">&lt;-</span> <span class="st">"#1A2A3A"</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>line_color <span class="ot">&lt;-</span> <span class="st">"#A8B820"</span></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the plot</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>pie_chart <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pie_data_tbl, <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> <span class="fl">1.8</span>, <span class="at">color =</span> line_color, <span class="at">fill =</span> bg_color, <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fl">3.1</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> label_text), <span class="at">color =</span> line_color, <span class="at">fontface =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>) <span class="sc">+</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> y_pos, <span class="at">label =</span> icon), <span class="at">family =</span> <span class="st">"fontawesome"</span>, <span class="at">size =</span> <span class="dv">15</span>, <span class="at">color =</span> line_color) <span class="sc">+</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_polar</span>(<span class="at">theta =</span> <span class="st">"y"</span>, <span class="at">start =</span> pi <span class="sc">/</span> <span class="dv">2</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">3.2</span>)) <span class="sc">+</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>),</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> bg_color, <span class="at">color =</span> <span class="cn">NA</span>)</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Disable showtext after the plot is created</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="fu">showtext_auto</span>(<span class="at">enable =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>pie_chart</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -874,23 +901,23 @@ Industry
 <p>Most energy consumed in the West of England is from petroleum products. The data below is for all energy consumption in the West of England in 2023.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="nvqplaxgzi" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#nvqplaxgzi table {
+<div id="ydleaomphl" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#ydleaomphl table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#nvqplaxgzi thead, #nvqplaxgzi tbody, #nvqplaxgzi tfoot, #nvqplaxgzi tr, #nvqplaxgzi td, #nvqplaxgzi th {
+#ydleaomphl thead, #ydleaomphl tbody, #ydleaomphl tfoot, #ydleaomphl tr, #ydleaomphl td, #ydleaomphl th {
   border-style: none;
 }
 
-#nvqplaxgzi p {
+#ydleaomphl p {
   margin: 0;
   padding: 0;
 }
 
-#nvqplaxgzi .gt_table {
+#ydleaomphl .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -916,12 +943,12 @@ Industry
   border-left-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_caption {
+#ydleaomphl .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#nvqplaxgzi .gt_title {
+#ydleaomphl .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -933,7 +960,7 @@ Industry
   border-bottom-width: 0;
 }
 
-#nvqplaxgzi .gt_subtitle {
+#ydleaomphl .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -945,7 +972,7 @@ Industry
   border-top-width: 0;
 }
 
-#nvqplaxgzi .gt_heading {
+#ydleaomphl .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -957,13 +984,13 @@ Industry
   border-right-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_bottom_border {
+#ydleaomphl .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_col_headings {
+#ydleaomphl .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -978,7 +1005,7 @@ Industry
   border-right-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_col_heading {
+#ydleaomphl .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -998,7 +1025,7 @@ Industry
   overflow-x: hidden;
 }
 
-#nvqplaxgzi .gt_column_spanner_outer {
+#ydleaomphl .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1010,15 +1037,15 @@ Industry
   padding-right: 4px;
 }
 
-#nvqplaxgzi .gt_column_spanner_outer:first-child {
+#ydleaomphl .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#nvqplaxgzi .gt_column_spanner_outer:last-child {
+#ydleaomphl .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#nvqplaxgzi .gt_column_spanner {
+#ydleaomphl .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1030,11 +1057,11 @@ Industry
   width: 100%;
 }
 
-#nvqplaxgzi .gt_spanner_row {
+#ydleaomphl .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#nvqplaxgzi .gt_group_heading {
+#ydleaomphl .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1060,7 +1087,7 @@ Industry
   text-align: left;
 }
 
-#nvqplaxgzi .gt_empty_group_heading {
+#ydleaomphl .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1075,15 +1102,15 @@ Industry
   vertical-align: middle;
 }
 
-#nvqplaxgzi .gt_from_md > :first-child {
+#ydleaomphl .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#nvqplaxgzi .gt_from_md > :last-child {
+#ydleaomphl .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#nvqplaxgzi .gt_row {
+#ydleaomphl .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1102,7 +1129,7 @@ Industry
   overflow-x: hidden;
 }
 
-#nvqplaxgzi .gt_stub {
+#ydleaomphl .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1115,7 +1142,7 @@ Industry
   padding-right: 5px;
 }
 
-#nvqplaxgzi .gt_stub_row_group {
+#ydleaomphl .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1129,15 +1156,15 @@ Industry
   vertical-align: top;
 }
 
-#nvqplaxgzi .gt_row_group_first td {
+#ydleaomphl .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#nvqplaxgzi .gt_row_group_first th {
+#ydleaomphl .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#nvqplaxgzi .gt_summary_row {
+#ydleaomphl .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1147,16 +1174,16 @@ Industry
   padding-right: 5px;
 }
 
-#nvqplaxgzi .gt_first_summary_row {
+#ydleaomphl .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_first_summary_row.thick {
+#ydleaomphl .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#nvqplaxgzi .gt_last_summary_row {
+#ydleaomphl .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1166,7 +1193,7 @@ Industry
   border-bottom-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_grand_summary_row {
+#ydleaomphl .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1176,7 +1203,7 @@ Industry
   padding-right: 5px;
 }
 
-#nvqplaxgzi .gt_first_grand_summary_row {
+#ydleaomphl .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1186,7 +1213,7 @@ Industry
   border-top-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_last_grand_summary_row_top {
+#ydleaomphl .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1196,11 +1223,11 @@ Industry
   border-bottom-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_striped {
+#ydleaomphl .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#nvqplaxgzi .gt_table_body {
+#ydleaomphl .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1209,7 +1236,7 @@ Industry
   border-bottom-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_footnotes {
+#ydleaomphl .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1223,7 +1250,7 @@ Industry
   border-right-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_footnote {
+#ydleaomphl .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1232,7 +1259,7 @@ Industry
   padding-right: 5px;
 }
 
-#nvqplaxgzi .gt_sourcenotes {
+#ydleaomphl .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1246,7 +1273,7 @@ Industry
   border-right-color: #D3D3D3;
 }
 
-#nvqplaxgzi .gt_sourcenote {
+#ydleaomphl .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1254,72 +1281,72 @@ Industry
   padding-right: 5px;
 }
 
-#nvqplaxgzi .gt_left {
+#ydleaomphl .gt_left {
   text-align: left;
 }
 
-#nvqplaxgzi .gt_center {
+#ydleaomphl .gt_center {
   text-align: center;
 }
 
-#nvqplaxgzi .gt_right {
+#ydleaomphl .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#nvqplaxgzi .gt_font_normal {
+#ydleaomphl .gt_font_normal {
   font-weight: normal;
 }
 
-#nvqplaxgzi .gt_font_bold {
+#ydleaomphl .gt_font_bold {
   font-weight: bold;
 }
 
-#nvqplaxgzi .gt_font_italic {
+#ydleaomphl .gt_font_italic {
   font-style: italic;
 }
 
-#nvqplaxgzi .gt_super {
+#ydleaomphl .gt_super {
   font-size: 65%;
 }
 
-#nvqplaxgzi .gt_footnote_marks {
+#ydleaomphl .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#nvqplaxgzi .gt_asterisk {
+#ydleaomphl .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#nvqplaxgzi .gt_indent_1 {
+#ydleaomphl .gt_indent_1 {
   text-indent: 5px;
 }
 
-#nvqplaxgzi .gt_indent_2 {
+#ydleaomphl .gt_indent_2 {
   text-indent: 10px;
 }
 
-#nvqplaxgzi .gt_indent_3 {
+#ydleaomphl .gt_indent_3 {
   text-indent: 15px;
 }
 
-#nvqplaxgzi .gt_indent_4 {
+#ydleaomphl .gt_indent_4 {
   text-indent: 20px;
 }
 
-#nvqplaxgzi .gt_indent_5 {
+#ydleaomphl .gt_indent_5 {
   text-indent: 25px;
 }
 
-#nvqplaxgzi .katex-display {
+#ydleaomphl .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#nvqplaxgzi div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#ydleaomphl div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1411,25 +1438,25 @@ Leaf
 </section>
 <section id="home-heating-fuel-types" class="level2" data-number="6">
 <h2 data-number="6" class="anchored" data-anchor-id="home-heating-fuel-types"><span class="header-section-number">6</span> Home Heating: Fuel Types</h2>
-<p>Analysis of the main heating fuel type in homes with an Energy Performance Certificate (EPC) in the West of England. The data is current to July 2025. Only around 70% of homes in the West of England have an EPC. The main heat classification in the data is not always precisely defined, so the categories below are broad groupings and classified from the original data using a large language model. In the visualisations and table below the “Two or more fuels” category has been excluded as the numbers are very small and uncertain, and all renewable heating types (biomass, solar, heat pumps) have been grouped together.</p>
+<p>Analysis of the main heating fuel type in homes with an Energy Performance Certificate (EPC) in the West of England. The data is current to August 2025. Only around 70% of homes in the West of England have an EPC. The main heat classification in the data is not always precisely defined, so the categories below are broad groupings and classified from the original data using a large language model. In the visualisations and table below the “Two or more fuels” category has been excluded as the numbers are very small and uncertain, and all renewable heating types (biomass, solar, heat pumps) have been grouped together.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot <span class="ot">&lt;-</span> fuel_types_homes_plot_tbl <span class="sc">|&gt;</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> n, <span class="at">y =</span> category)) <span class="sc">+</span> <span class="do">## AMENDED: Swapped x and y aesthetics, removed coord_flip() for simplicity.</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> weca_primary_palette[<span class="dv">1</span>], <span class="at">show.legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">labels =</span> <span class="cf">function</span>(x) <span class="fu">str_wrap</span>(x, <span class="at">width =</span> <span class="dv">20</span>)) <span class="sc">+</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Main heating fuel type in homes with an EPC"</span>,</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England homes with an EPC to {epc_date}"</span>),</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of homes"</span>,</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="cn">NULL</span>,</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: MHCLG"</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot <span class="ot">&lt;-</span> fuel_types_homes_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> n, <span class="at">y =</span> category)) <span class="sc">+</span> <span class="do">## AMENDED: Swapped x and y aesthetics, removed coord_flip() for simplicity.</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> weca_primary_palette[<span class="dv">1</span>], <span class="at">show.legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">labels =</span> <span class="cf">function</span>(x) <span class="fu">str_wrap</span>(x, <span class="at">width =</span> <span class="dv">20</span>)) <span class="sc">+</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Main heating fuel type in homes with an EPC"</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England homes with an EPC to {epc_date}"</span>),</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of homes"</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="cn">NULL</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: MHCLG"</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1442,30 +1469,30 @@ Leaf
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_single_bar <span class="ot">&lt;-</span> fuel_types_homes_plot_tbl <span class="sc">|&gt;</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">1</span>, <span class="at">y =</span> n, <span class="at">fill =</span> category)) <span class="sc">+</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">"stack"</span>, <span class="at">show.legend =</span> <span class="cn">TRUE</span>) <span class="sc">+</span> <span class="do">## AMENDED: Explicitly set position = "stack" for clarity.</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_6) <span class="sc">+</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">fill =</span> <span class="fu">guide_legend</span>(<span class="at">reverse =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Main heating fuel type in homes with an EPC"</span>,</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"Homes in the West of England with an EPC to {epc_date}"</span>),</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="cn">NULL</span>,</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Number of homes"</span>,</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Fuel type"</span>,</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: MHCLG"</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>() <span class="sc">+</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks.y =</span> <span class="fu">element_blank</span>(), <span class="do">## AMENDED: Also remove ticks for a cleaner look.</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title.position =</span> <span class="st">"plot"</span>, <span class="do">## AMENDED: Better way to align title than manual hjust.</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">0</span>) <span class="do">## AMENDED: Simpler alignment.</span></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_single_bar</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_single_bar <span class="ot">&lt;-</span> fuel_types_homes_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">1</span>, <span class="at">y =</span> n, <span class="at">fill =</span> category)) <span class="sc">+</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">"stack"</span>, <span class="at">show.legend =</span> <span class="cn">TRUE</span>) <span class="sc">+</span> <span class="do">## AMENDED: Explicitly set position = "stack" for clarity.</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_6) <span class="sc">+</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">fill =</span> <span class="fu">guide_legend</span>(<span class="at">reverse =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Main heating fuel type in homes with an EPC"</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"Homes in the West of England with an EPC to {epc_date}"</span>),</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Number of homes"</span>,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Fuel type"</span>,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: MHCLG"</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>() <span class="sc">+</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks.y =</span> <span class="fu">element_blank</span>(), <span class="do">## AMENDED: Also remove ticks for a cleaner look.</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title.position =</span> <span class="st">"plot"</span>, <span class="do">## AMENDED: Better way to align title than manual hjust.</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">0</span>) <span class="do">## AMENDED: Simpler alignment.</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>fuel_types_homes_single_bar</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1477,23 +1504,23 @@ Leaf
 </div>
 <div class="cell">
 <div class="cell-output-display">
-<div id="qldgevghga" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#qldgevghga table {
+<div id="dtfcafygqu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#dtfcafygqu table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#qldgevghga thead, #qldgevghga tbody, #qldgevghga tfoot, #qldgevghga tr, #qldgevghga td, #qldgevghga th {
+#dtfcafygqu thead, #dtfcafygqu tbody, #dtfcafygqu tfoot, #dtfcafygqu tr, #dtfcafygqu td, #dtfcafygqu th {
   border-style: none;
 }
 
-#qldgevghga p {
+#dtfcafygqu p {
   margin: 0;
   padding: 0;
 }
 
-#qldgevghga .gt_table {
+#dtfcafygqu .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1519,12 +1546,12 @@ Leaf
   border-left-color: #D3D3D3;
 }
 
-#qldgevghga .gt_caption {
+#dtfcafygqu .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#qldgevghga .gt_title {
+#dtfcafygqu .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -1536,7 +1563,7 @@ Leaf
   border-bottom-width: 0;
 }
 
-#qldgevghga .gt_subtitle {
+#dtfcafygqu .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -1548,7 +1575,7 @@ Leaf
   border-top-width: 0;
 }
 
-#qldgevghga .gt_heading {
+#dtfcafygqu .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1560,13 +1587,13 @@ Leaf
   border-right-color: #D3D3D3;
 }
 
-#qldgevghga .gt_bottom_border {
+#dtfcafygqu .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#qldgevghga .gt_col_headings {
+#dtfcafygqu .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1581,7 +1608,7 @@ Leaf
   border-right-color: #D3D3D3;
 }
 
-#qldgevghga .gt_col_heading {
+#dtfcafygqu .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1601,7 +1628,7 @@ Leaf
   overflow-x: hidden;
 }
 
-#qldgevghga .gt_column_spanner_outer {
+#dtfcafygqu .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1613,15 +1640,15 @@ Leaf
   padding-right: 4px;
 }
 
-#qldgevghga .gt_column_spanner_outer:first-child {
+#dtfcafygqu .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#qldgevghga .gt_column_spanner_outer:last-child {
+#dtfcafygqu .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#qldgevghga .gt_column_spanner {
+#dtfcafygqu .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1633,11 +1660,11 @@ Leaf
   width: 100%;
 }
 
-#qldgevghga .gt_spanner_row {
+#dtfcafygqu .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#qldgevghga .gt_group_heading {
+#dtfcafygqu .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1663,7 +1690,7 @@ Leaf
   text-align: left;
 }
 
-#qldgevghga .gt_empty_group_heading {
+#dtfcafygqu .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1678,15 +1705,15 @@ Leaf
   vertical-align: middle;
 }
 
-#qldgevghga .gt_from_md > :first-child {
+#dtfcafygqu .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#qldgevghga .gt_from_md > :last-child {
+#dtfcafygqu .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#qldgevghga .gt_row {
+#dtfcafygqu .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1705,7 +1732,7 @@ Leaf
   overflow-x: hidden;
 }
 
-#qldgevghga .gt_stub {
+#dtfcafygqu .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1718,7 +1745,7 @@ Leaf
   padding-right: 5px;
 }
 
-#qldgevghga .gt_stub_row_group {
+#dtfcafygqu .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1732,15 +1759,15 @@ Leaf
   vertical-align: top;
 }
 
-#qldgevghga .gt_row_group_first td {
+#dtfcafygqu .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#qldgevghga .gt_row_group_first th {
+#dtfcafygqu .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#qldgevghga .gt_summary_row {
+#dtfcafygqu .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1750,16 +1777,16 @@ Leaf
   padding-right: 5px;
 }
 
-#qldgevghga .gt_first_summary_row {
+#dtfcafygqu .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#qldgevghga .gt_first_summary_row.thick {
+#dtfcafygqu .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#qldgevghga .gt_last_summary_row {
+#dtfcafygqu .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1769,7 +1796,7 @@ Leaf
   border-bottom-color: #D3D3D3;
 }
 
-#qldgevghga .gt_grand_summary_row {
+#dtfcafygqu .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1779,7 +1806,7 @@ Leaf
   padding-right: 5px;
 }
 
-#qldgevghga .gt_first_grand_summary_row {
+#dtfcafygqu .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1789,7 +1816,7 @@ Leaf
   border-top-color: #D3D3D3;
 }
 
-#qldgevghga .gt_last_grand_summary_row_top {
+#dtfcafygqu .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1799,11 +1826,11 @@ Leaf
   border-bottom-color: #D3D3D3;
 }
 
-#qldgevghga .gt_striped {
+#dtfcafygqu .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#qldgevghga .gt_table_body {
+#dtfcafygqu .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1812,7 +1839,7 @@ Leaf
   border-bottom-color: #D3D3D3;
 }
 
-#qldgevghga .gt_footnotes {
+#dtfcafygqu .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1826,7 +1853,7 @@ Leaf
   border-right-color: #D3D3D3;
 }
 
-#qldgevghga .gt_footnote {
+#dtfcafygqu .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1835,7 +1862,7 @@ Leaf
   padding-right: 5px;
 }
 
-#qldgevghga .gt_sourcenotes {
+#dtfcafygqu .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1849,7 +1876,7 @@ Leaf
   border-right-color: #D3D3D3;
 }
 
-#qldgevghga .gt_sourcenote {
+#dtfcafygqu .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1857,72 +1884,72 @@ Leaf
   padding-right: 5px;
 }
 
-#qldgevghga .gt_left {
+#dtfcafygqu .gt_left {
   text-align: left;
 }
 
-#qldgevghga .gt_center {
+#dtfcafygqu .gt_center {
   text-align: center;
 }
 
-#qldgevghga .gt_right {
+#dtfcafygqu .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#qldgevghga .gt_font_normal {
+#dtfcafygqu .gt_font_normal {
   font-weight: normal;
 }
 
-#qldgevghga .gt_font_bold {
+#dtfcafygqu .gt_font_bold {
   font-weight: bold;
 }
 
-#qldgevghga .gt_font_italic {
+#dtfcafygqu .gt_font_italic {
   font-style: italic;
 }
 
-#qldgevghga .gt_super {
+#dtfcafygqu .gt_super {
   font-size: 65%;
 }
 
-#qldgevghga .gt_footnote_marks {
+#dtfcafygqu .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#qldgevghga .gt_asterisk {
+#dtfcafygqu .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#qldgevghga .gt_indent_1 {
+#dtfcafygqu .gt_indent_1 {
   text-indent: 5px;
 }
 
-#qldgevghga .gt_indent_2 {
+#dtfcafygqu .gt_indent_2 {
   text-indent: 10px;
 }
 
-#qldgevghga .gt_indent_3 {
+#dtfcafygqu .gt_indent_3 {
   text-indent: 15px;
 }
 
-#qldgevghga .gt_indent_4 {
+#dtfcafygqu .gt_indent_4 {
   text-indent: 20px;
 }
 
-#qldgevghga .gt_indent_5 {
+#dtfcafygqu .gt_indent_5 {
   text-indent: 25px;
 }
 
-#qldgevghga .katex-display {
+#dtfcafygqu .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#qldgevghga div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#dtfcafygqu div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1933,7 +1960,7 @@ Leaf
 <th colspan="3" class="gt_heading gt_title gt_font_normal">Main heating fuel type in homes with an EPC</th>
 </tr>
 <tr class="gt_heading even">
-<th colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">West of England homes with an EPC to July 2025</th>
+<th colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">West of England homes with an EPC to August 2025</th>
 </tr>
 <tr class="gt_col_headings header">
 <th id="category" class="gt_col_heading gt_columns_bottom_border gt_center" data-quarto-table-cell-role="th" scope="col">Main heating fuel type</th>
@@ -1944,36 +1971,36 @@ Leaf
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_center" headers="category">Mains gas</td>
-<td class="gt_row gt_right" headers="n">294,443</td>
+<td class="gt_row gt_right" headers="n">294,942</td>
 <td class="gt_row gt_right" headers="pct">80%</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_center" headers="category">Electricity</td>
-<td class="gt_row gt_right" headers="n">47,468</td>
+<td class="gt_row gt_right" headers="n">47,486</td>
 <td class="gt_row gt_right" headers="pct">13%</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_center" headers="category">Community heating scheme</td>
-<td class="gt_row gt_right" headers="n">13,766</td>
+<td class="gt_row gt_right" headers="n">13,778</td>
 <td class="gt_row gt_right" headers="pct">4%</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_center" headers="category">Oil</td>
-<td class="gt_row gt_right" headers="n">7,330</td>
+<td class="gt_row gt_right" headers="n">7,349</td>
 <td class="gt_row gt_right" headers="pct">2%</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_center" headers="category">Renewable (inc. heat pumps)</td>
-<td class="gt_row gt_right" headers="n">4,074</td>
+<td class="gt_row gt_right" headers="n">4,088</td>
 <td class="gt_row gt_right" headers="pct">1%</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_center" headers="category">Other and unknown</td>
-<td class="gt_row gt_right" headers="n">2,776</td>
+<td class="gt_row gt_right" headers="n">2,781</td>
 <td class="gt_row gt_right" headers="pct">1%</td>
 </tr>
-</tbody><tfoot class="gt_sourcenotes">
-<tr class="odd">
+</tbody><tfoot>
+<tr class="gt_sourcenotes odd">
 <td colspan="3" class="gt_sourcenote">Source: MHCLG</td>
 </tr>
 </tfoot>
@@ -1989,24 +2016,24 @@ Leaf
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>energy_weca_plot <span class="ot">&lt;-</span> energy_weca_plot_tbl <span class="sc">|&gt;</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> calendar_year, <span class="at">y =</span> gwh, <span class="at">fill =</span> ladnm)) <span class="sc">+</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_4) <span class="sc">+</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Total energy consumption (GWh)"</span>,</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities, {start_year}-{max_year}"</span>),</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"GWh"</span>,</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: Sub-national total final energy consumption"</span></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>energy_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>energy_weca_plot <span class="ot">&lt;-</span> energy_weca_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> calendar_year, <span class="at">y =</span> gwh, <span class="at">fill =</span> ladnm)) <span class="sc">+</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_4) <span class="sc">+</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Total energy consumption (GWh)"</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities, {start_year}-{max_year}"</span>),</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"GWh"</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: Sub-national total final energy consumption"</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>energy_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -2022,24 +2049,24 @@ Leaf
 <div class="cell">
 <details class="code-fold">
 <summary>Show/Hide Code</summary>
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot <span class="ot">&lt;-</span> emissions_weca_plot_tbl <span class="sc">|&gt;</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> calendar_year, <span class="at">y =</span> total_emissions, <span class="at">fill =</span> local_authority)) <span class="sc">+</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_4) <span class="sc">+</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Total territorial emissions (greenhouse gases)"</span>,</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities, {start_year}-{max_year}"</span>),</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"KtCO2e"</span>, </span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: UK local authority and regional greenhouse gas emissions statistics"</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot <span class="ot">&lt;-</span> emissions_weca_plot_tbl <span class="sc">|&gt;</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> calendar_year, <span class="at">y =</span> total_emissions, <span class="at">fill =</span> local_authority)) <span class="sc">+</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma) <span class="sc">+</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(start_year, max_year, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> weca_palette_4) <span class="sc">+</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Total territorial emissions (greenhouse gases)"</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England local authorities, {start_year}-{max_year}"</span>),</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"KtCO2e"</span>, </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Local authority"</span>,</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: UK local authority and regional greenhouse gas emissions statistics"</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_weca_bar</span>()</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>emissions_weca_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -2048,6 +2075,40 @@ Leaf
 </figure>
 </div>
 </div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>sector_emissions_weca_max_year_tbl <span class="ot">&lt;-</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>ghg_emissions_tbl <span class="sc">|&gt;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    local_authority_code <span class="sc">%in%</span> weca_ns_la_codes,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    calendar_year <span class="sc">==</span> max_year,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(la_ghg_sector) <span class="sc">|&gt;</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">total_emissions_kt_co2e =</span> <span class="fu">sum</span>(territorial_emissions_kt_co2e), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> total_emissions_kt_co2e <span class="sc">/</span> <span class="fu">sum</span>(total_emissions_kt_co2e)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show/Hide Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>sector_emission_proportion_gt <span class="ot">&lt;-</span> sector_emissions_weca_max_year_tbl <span class="sc">|&gt;</span> </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> total_emissions_kt_co2e, <span class="at">decimals =</span> <span class="dv">0</span>  ) <span class="sc">|&gt;</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_percent</span>(<span class="at">columns =</span> pct, <span class="at">decimals =</span> <span class="dv">0</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">la_ghg_sector =</span> <span class="st">"GHG Sector"</span>,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_emissions_kt_co2e =</span> <span class="st">"Total emissions (KtCO2e)"</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct =</span> <span class="st">"Percentage of total"</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Territorial emissions by GHG sector"</span>,</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="fu">glue</span>(<span class="st">"West of England, {max_year}"</span>)</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_source_note</span>(<span class="at">source_note =</span> <span class="st">"Source: UK local authority and regional greenhouse gas emissions statistics"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_options</span>(<span class="at">table.font.size =</span> <span class="fu">px</span>(<span class="dv">14</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 </section>
 
