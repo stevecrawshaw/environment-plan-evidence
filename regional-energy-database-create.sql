@@ -1,7 +1,9 @@
 rm 'data/regional_energy.duckdb'
-duckdb 
+duckdb
+
 LOAD HTTPFS;
 LOAD SPATIAL;
+LOAD rusty_sheet;
 -- renewable energy planning database
 
 
@@ -20,9 +22,10 @@ FROM read_csv('data/repd-q2-jul-2025.csv', normalize_names=true, ignore_errors=t
 
 CREATE OR REPLACE TABLE ev_chargepoints_all_speeds_uk_la_tbl AS
 SELECT local_authority_region_code, local_authority_region_name, apr25 
-FROM read_xlsx('data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx',
-sheet='1a', range = 'A3:Y436', normalize_names=true, ignore_errors=true)
-WHERE local_authority_region_code LIKE 'E0%' AND apr25 IS NOT NULL;
+FROM read_sheet('data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx',
+sheet='1a', range = 'A3:Y436', ignore_errors=true, normalize_names=true)
+WHERE local_authority_region_code LIKE 'E0%' AND apr25 IS NOT NULL  ;
+
 
 CREATE OR REPLACE TABLE ev_chargepoints_all_speeds_uk_la_per_cap_tbl AS
 SELECT local_authority_region_code_note_5 local_authority_region_code, local_authority_region_name, apr25 

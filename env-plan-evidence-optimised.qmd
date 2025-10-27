@@ -121,7 +121,7 @@ North Somerset council is included in the West of England data throughout this d
 ```{r data-import-epc}
 # Connect to the EPC database
 con_epc <- dbConnect(duckdb::duckdb("../mca-data/data/ca_epc.duckdb"))
-dbExecute(con_epc, "LOAD spatial")
+invisible(dbExecute(con_epc, "LOAD spatial"))
 
 # Query necessary tables
 ca_la_tbl <- dbGetQuery(con_epc, "FROM ca_la_tbl")
@@ -147,7 +147,7 @@ weca_palette_4 <- weca_primary_palette[2:5] |>
 ```{r data-import-env}
 # Connect to the energy database
 con_env <- dbConnect(duckdb::duckdb("data/regional_energy.duckdb"))
-dbExecute(con_env, "LOAD SPATIAL")
+invisible(dbExecute(con_env, "LOAD SPATIAL"))
 
 # Query electricity table
 electricity_la_tbl <- dbGetQuery(con_env, "FROM electricity_la_tbl")
@@ -346,8 +346,10 @@ energy_data_weca_max_year_all_sectors_tbl <- energy_data_all_la_tbl |>
   mutate(fuel_type = if_else(fuel %in% main_fuels, fuel, "Other")) |>
   group_by(fuel_type) |>
   summarise(energy_GTOe = sum(gigatonnes_oil_equivalent, na.rm = TRUE), .groups = "drop") |>
-  mutate(pct_fuel = energy_GTOe * 100 / sum(energy_GTOe))
+  mutate(pct_fuel = energy_GTOe * 100 / sum(energy_GTOe),
+         percent_fuel = round(pct_fuel))
 ```
+
 
 ```{r gt-table-energy-by-fuel}
 #| echo: FALSE
@@ -365,20 +367,21 @@ gt_fuel_tbl <- energy_data_weca_max_year_all_sectors_tbl |>
   arrange(desc(pct_fuel))
 
 fuel_gt <- gt_fuel_tbl |>
-  select(fa_icon, fuel_type, pct_fuel) |>
+  select(fa_icon, fuel_type, pct_fuel, percent_fuel) |>
   gt() |>
   fmt_icon(columns = fa_icon) |>
   gt_plt_bar_pct(
     column = pct_fuel,
     fill = weca_primary_palette[1],
     background = "darkgrey",
-    label_cutoff = 1,
-    labels = TRUE,
+    # label_cutoff = 1,
+    # labels = TRUE,
     scaled = TRUE
   ) |>
   cols_label(
     fa_icon = "",
     fuel_type = "Fuel",
+    percent_fuel = md("Percentage<br>of total energy"),
     pct_fuel = glue("Contribution ({max_year})")
   )
 

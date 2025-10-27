@@ -1,34 +1,42 @@
-# vs-code-setup
-Setup for VS code projects like Arjan Codes
+## Regional Environmental Analysis
 
-This is for a VS Code project template that includes a virtual environment and some recommended extensions. The template is for Python projects with a focus on data analysis, but can be adapted for other languages.
+This repo contains scripts and data for a few tasks:
 
-The .gitignore file is set up to ignore the virtual environment and other common files that should not be committed to the repository. It also includes common R files and folders which should not be pushed to publis repos.
+1. ETL processes to gather, clean and transform energy related data from various sources. and store in a duckdb database which is pushed to Motherduck.
+2. Analysis scripts to perform regional environmental analysis using the cleaned data. and create an alalysis report in quarto which is published to quarto - pub. Images are also generated to populate a report.
 
-## How to use:
+# Original Brief:
 
-Click "Use this template" - Create a new repository.
+As discussed, can you start collating data for the Environment Plan? I suggest as set out here
 
-Give the repo a name and description.
-Create the repository.
+Can you convert the data to graphs
 
-## Clone the repository
-git clone
+Please save anything into this folder   GHG MW Data
 
-## Install packages with uv
+## Net Zero Data Picture
+- [Broadly following p 11 and 13](https://www.wmca.org.uk/media/wumiikpt/wm-net-zero-fyp-summary-tech-report.pdf )
 
-Then in either the codespace or local machine, recreate the default .venv with uv sync.
-Add new packages with uv add <package>.
+## Energy Use 
 
-Don't forget that if you are running tools from the command line which are installed in the .venv you need to activate the virtual environment first, e.g. on Windows:
-```
-.\.venv\Scripts\activate
-```
-on Linux or Mac:
-```
-source .venv/bin/activate
-```
-## Extensions
-Some recommended extensions are included in .vscode/extensions.json.
+- Total for the region 
+- By local authority area  
+- By sector 
+- By fuel type (pie) 
+- By heating in homes 
 
-Open the command palette (Ctrl+Shift+P) and type "Extensions: Install Extensions". Click the Funnel in the search extension bar and select "Recommended". This will show the extensions listed in .vscode/extensions.json. Click "Install All" to install them.
+
+## Greenhouse gas emissions ktCO2 
+- Total for the region 
+- By local authority area  
+
+## Regional 
+- Energy consumption and GHG emissions over time 
+- Tables in grey on p 13 
+
+## Energy Generation not in the WM report 
+- Total energy being generated in the region 
+- Total renewable energy generated in the region 
+- Total community owned energy generated in the region 
+- The above by local authority area? 
+
+All local authority data to include North Somerset 
