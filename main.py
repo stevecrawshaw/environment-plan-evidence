@@ -19,7 +19,7 @@ VEHICLE_DATA_TIME_PERIOD = "_2025_q1"  # Current time period for vehicle data
 
 REQUIRED_FILES = [
     "data/repd-q2-jul-2025.csv",
-    "data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.xlsx",
+    "data/electric-vehicle-public-charging-infrastructure-statistics-april-2025.ods",
     "data/df_VEH0125.csv",
     "data/df_VEH0135.csv",
     "data/df_VEH0145.csv",
@@ -57,10 +57,12 @@ def main():
         print("\n▶️  Starting transaction to create all tables...")
         con.begin()
 
-        # Load required extensions
+        # Install and load required extensions
+        con.sql("INSTALL rusty_sheet FROM community;")
         con.sql("LOAD HTTPFS;")
         con.sql("LOAD SPATIAL;")
-        print("✅ Loaded HTTPFS and SPATIAL extensions.")
+        con.sql("LOAD rusty_sheet;")
+        print("✅ Installed and loaded HTTPFS, SPATIAL, and rusty_sheet extensions.")
 
         # Create macros
         for macro_info in MACRO_DEFINITIONS:
