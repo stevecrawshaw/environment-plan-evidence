@@ -60,7 +60,7 @@ TABLE_CREATION_QUERIES = [
             name q_y
             VALUE cp_100k)
             SELECT "Local authority / region code 
-            [Note 5]" la_region_code,
+[Note 5]" la_region_code,
              "Local authority / region name" la_region_name,
              strptime(q_y[1:4] || '20' || q_y[5:6], '%b-%Y') quarter_ending,
              if(cp_100k[1] = '[', NULL, CAST(cp_100k AS INTEGER)) cp_100k_clean
