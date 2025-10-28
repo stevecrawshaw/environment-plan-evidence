@@ -612,6 +612,66 @@ sector_emission_proportion_gt <- sector_emissions_weca_max_year_tbl |>
 
 ```
 
+```{r renewable-data-wrangle}
+renewable <- tbl(con_env, "renewable_la_long_tbl")
+
+max_renewable_year <- renewable |>
+  summarise(max_year = max(calendar_year, na.rm = TRUE)) |>
+  pull(max_year)
+
+renewable_generation_latest_year_tbl <- 
+  renewable |> 
+  filter(local_authority_code %in% weca_ns_la_codes,
+  calendar_year == max_renewable_year,
+  type == "Generation",
+  energy_source != "total",
+  value > 0) |>
+  collect() |> 
+  mutate(Source = str_replace_all(energy_source, "_", " ") |>
+    str_to_sentence(),
+gen_GWH = value / 1000) 
+```
+Photovoltaics dominate renewable energy generation in the West of England, followed by onshore wind. The chart below shows renewable energy generation by source and local authority for the most recent year available, which is `r max_renewable_year`. Total renewable generation in the West of England in that year was approximately `r scales::comma(round(sum(renewable_generation_latest_year_tbl$gen_GWH), 0))` GWh.
+
+
+```{r renewable-generation-plot}
+renewable_plot_gg <- 
+renewable_generation_latest_year_tbl |>
+  ggplot(aes(
+x = Source,
+y = gen_GWH,
+fill = local_authority_name
+)) +
+  geom_col(position = "stack") +
+    scale_fill_manual(values = weca_palette_4) +
+      labs(
+    title = ("Renewable Energy Generation"),
+    subtitle = glue("WECA Local Authorities in {max_renewable_year}"),
+    caption = "Source: DESNZ Regional Renewable Statistics",
+    x = "Renewable Energy Source",
+    y = "GWh",
+    fill = "Local Authority"
+  ) +
+    theme_minimal() +
+      theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0),
+    plot.caption = element_text(size = 10),
+    legend.position = "right",
+    legend.key.size = unit(0.5, "cm"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    strip.text = element_text(size = 14),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text = element_text(size = 10, face = "bold")
+  ) +
+    coord_flip()
+
+renewable_plot_gg  
+
+```
+
+
 ```{r save-all-plots-and-tables}
 #| include: false
 
