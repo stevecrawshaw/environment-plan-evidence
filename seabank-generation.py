@@ -85,13 +85,6 @@ class SeabankDataRetriever:
         """Build the API request URL with parameters."""
         date_str = settlement_date.strftime("%Y-%m-%d")
         
-        params = {
-            "settlementDate": date_str,
-            "settlementPeriod": settlement_period,
-            "bmUnit": self.bm_units,
-            "format": "json"
-        }
-        
         # Build URL with multiple bmUnit parameters
         url_parts = [self.base_url + "?"]
         url_parts.append(f"settlementDate={date_str}")
