@@ -218,4 +218,13 @@ TABLE_CREATION_QUERIES = [
             JOIN fuel_sector_lookup_tbl fl
             USING(fuel_sector);""",
     },
+    {"name": "seabank_tbl",
+     "sql": """
+            CREATE OR REPLACE TABLE seabank_tbl AS 
+            SELECT * 
+            EXCLUDE (dataset, psrtype, nationalgridbmunitid, settlementdate)
+            RENAME (quantity AS generation_mwh)
+            FROM read_csv('data/seabank_generation_2024.csv', normalize_names=true);
+            """,
+    }
 ]

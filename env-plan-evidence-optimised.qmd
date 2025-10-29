@@ -43,7 +43,7 @@ chunk-options:
 # Pacman simplifies library loading by installing and loading in one step.
 pacman::p_load(
   tidyverse, janitor, readxl, glue, fs, duckdb, arrow, DBI, gt, gtExtras, 
-  treemapify, openair, ggtext, patchwork, showtext, fs, ragg
+  treemapify, openair, ggtext, patchwork, showtext, fs, ragg, timetk
 )
 ```
 
@@ -166,51 +166,130 @@ latest_epc_date <- as.Date(max(epc_domestic_lep_tbl$LODGEMENT_DATE))
 epc_date <- strftime(latest_epc_date, format = "%B %Y")
 ```
 
-## Emissions by Local Authority
+## Renewable Energy Generation
+```{r renewable-data-wrangle}
+renewable <- tbl(con_env, "renewable_la_long_tbl")
 
-The treemap below shows the total territorial emissions in Kilotonnes of CO2 equivalent (KtCO2e) for each local authority in the West of England for the most recent year available, which is `r max_year`.
+max_renewable_year <- renewable |>
+  summarise(max_year = max(calendar_year, na.rm = TRUE)) |>
+  pull(max_year)
 
-```{r emissions-data-for-treemap}
-#| echo: FALSE
-emissions_data_weca_max_year_tbl <- ghg_emissions_tbl |>
-  filter(
-    local_authority_code %in% weca_ns_la_codes,
-    calendar_year == max_year
-  ) |>
-  group_by(local_authority) |>
-  summarise(total_emissions = sum(territorial_emissions_kt_co2e))
+renewable_generation_latest_year_tbl <- 
+  renewable |> 
+  filter(local_authority_code %in% weca_ns_la_codes,
+  calendar_year == max_renewable_year,
+  type == "Generation",
+  energy_source != "total",
+  value > 0) |>
+  collect() |> 
+  mutate(Source = str_replace_all(energy_source, "_", " ") |>
+    str_to_sentence(),
+gen_GWH = value / 1000) 
 ```
+Photovoltaics dominate renewable energy generation in the West of England, followed by onshore wind. The chart below shows renewable energy generation by source and local authority for the most recent year available, which is `r max_renewable_year`. Total renewable generation in the West of England in that year was approximately `r scales::comma(round(sum(renewable_generation_latest_year_tbl$gen_GWH), 0))` GWh.
 
-```{r treemap-plot-emissions}
-emissions_treemap_plot <- emissions_data_weca_max_year_tbl |>
+
+```{r renewable-generation-plot}
+renewable_plot_gg <- 
+renewable_generation_latest_year_tbl |>
   ggplot(aes(
-    area = total_emissions,
-    fill = local_authority,
-    label = glue("{round(total_emissions, 0)}\n{local_authority}")
-  )) +
-  geom_treemap() +
-  geom_treemap_text(
-    colour = "white",
-    place = "topleft",
-    min.size = 4,
-    grow = FALSE,
-    reflow = TRUE
+x = Source,
+y = gen_GWH,
+fill = local_authority_name
+)) +
+  geom_col(position = "stack") +
+    scale_fill_manual(values = weca_palette_4) +
+      labs(
+    title = ("Renewable Energy Generation"),
+    subtitle = glue("WECA Local Authorities in {max_renewable_year}"),
+    caption = "Source: DESNZ Regional Renewable Statistics",
+    x = "Renewable Energy Source",
+    y = "GWh",
+    fill = "Local Authority"
   ) +
-  scale_fill_manual(values = weca_palette_4) +
-  labs(
-    title = glue("Total territorial emissions by local authority, {max_year} (KtCO2e)"),
-    caption = "Source: UK local authority and regional greenhouse gas emissions statistics",
-    fill = "Local authority"
+    theme_minimal() +
+      theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0),
+    plot.caption = element_text(size = 10),
+    legend.position = "right",
+    legend.key.size = unit(0.5, "cm"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    strip.text = element_text(size = 14),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text = element_text(size = 10, face = "bold")
   ) +
-  theme_minimal() + 
-  theme(
-    legend.position = "none",
-    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, margin = margin(b = 10))
-  )
+    coord_flip()
 
-emissions_treemap_plot
+renewable_plot_gg  
+
 ```
+## Fossil Fuel Generation
 
+```{r seabank-power-data-wrangling}
+seabank_tbl <- tbl(con_env, "seabank_tbl") |>
+    group_by(date = as.Date(halfhourendtime), bmunit) |>
+    summarise(
+        generation_mwh = sum(generation_mwh, na.rm = TRUE),
+        .groups = "drop"
+    ) |>
+    arrange(bmunit, date) |>
+    collect()
+
+total_gwh <- dbGetQuery(
+    con_env,
+    "SELECT sum(generation_mwh) / 1000 AS generation_gwh FROM seabank_tbl"
+) |>
+    pull()
+
+year_fossil <- dbGetQuery(
+    con_env,
+    "SELECT year(min(halfhourendtime)) FROM seabank_tbl"
+) |>
+    pull()
+
+percent_renewable_generation <- (sum(renewable_generation_latest_year_tbl$gen_GWH) * 100 / (total_gwh + sum(renewable_generation_latest_year_tbl$gen_GWH))) |> round()
+
+```
+There is one fossil fuel power station in the West of England, at Avonmouth. It is a combined cycle gas turbine (CCGT) plant with a capacity of 1234 MW operated by [Seabank Power Ltd](https://en.wikipedia.org/wiki/Seabank_Power_Station). Generation data for 2024 were retrieved from the [Elexon API](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/B1610) for each settlement period in 2024. The total generation from the plant in 2024 was approximately `r scales::comma(round(total_gwh, 0))` GWh.
+
+So in `r max_renewable_year`, renewable generation in the West of England was approximately `r percent_renewable_generation`% of the total electricity generated.
+
+```{r seabank-power-plot}
+
+seabank_plotly <- seabank_tbl |>
+    plot_time_series(
+        .date_var = date,
+        .value = generation_mwh,
+        .color_var = bmunit,
+        .smooth = FALSE,
+        .facet_vars = bmunit,
+        .facet_ncol = 2,
+        .title = "Seabank Power Station Generation by Generating Unit",
+        .x_lab = "Date",
+        .y_lab = "Generation (MWh)"
+    )
+
+seabank_gg <- seabank_tbl |>
+    ggplot(aes(x = date, y = generation_mwh, color = bmunit)) +
+    geom_line() +
+    facet_wrap(~bmunit, ncol = 1) +
+    labs(
+        title = "Seabank Power Station",
+        subtitle = glue("Daily total generation by generating unit in {year_fossil}"),
+        x = "Date",
+        y = "Generation (MWh)",
+        color = "Generating Unit"
+    ) +
+      scale_color_manual(values = weca_primary_palette[2:3]) +
+    theme_minimal()
+```
+The plot below shows the daily generation from each of the two generating units at Seabank Power Station in `r year_fossil`.
+
+```{r show-seabank_plot}
+seabank_gg
+```
 ## Energy Consumption and Fuel Types
 
 Transport uses the largest share of energy in the West of England, closely followed by domestic and then industry, commercial and other users. The data below is for all energy consumption in the West of England in `r max_year`. Almost all transport energy use is from petroleum products.
@@ -253,9 +332,7 @@ change_energy_consumption_weca <- energy_data_all_la_tbl |>
 change_pct_energy_weca <- round(change_energy_consumption_weca$pct_change[2])
 
 ```
-
 Total energy consumption in the West of England in `r max_year` was approximately `r scales::comma(round(total_energy_weca, 0))` GWh. This is a drop of `r abs(change_pct_energy_weca)`% since `r min_year`.
-
 
 ```{r gt-table-energy-by-end-user}
 #| echo: FALSE
@@ -276,15 +353,6 @@ sector_gt <- gt_source_tbl |>
   select(fa_icon, sector, pct_sector) |>
   gt() |>
   fmt_icon(columns = fa_icon) |>
-#   gt_plt_bar_pct(
-#     column = pct_100_sector,
-#     width = 40,
-#     fill = weca_primary_palette[1],
-#     background = "darkgrey",
-#     label_cutoff = 1,
-#     labels = FALSE,
-#     scaled = TRUE
-#   ) |>
     fmt_percent(columns = pct_sector, decimals = 0) |>
   cols_label(
     fa_icon = "",
@@ -546,6 +614,50 @@ energy_weca_plot <- energy_weca_plot_tbl |>
 energy_weca_plot
 ```
 
+## Emissions by Local Authority
+
+The treemap below shows the total territorial emissions in Kilotonnes of CO2 equivalent (KtCO2e) for each local authority in the West of England for the most recent year available, which is `r max_year`.
+
+```{r emissions-data-for-treemap}
+#| echo: FALSE
+emissions_data_weca_max_year_tbl <- ghg_emissions_tbl |>
+  filter(
+    local_authority_code %in% weca_ns_la_codes,
+    calendar_year == max_year
+  ) |>
+  group_by(local_authority) |>
+  summarise(total_emissions = sum(territorial_emissions_kt_co2e))
+```
+
+```{r treemap-plot-emissions}
+emissions_treemap_plot <- emissions_data_weca_max_year_tbl |>
+  ggplot(aes(
+    area = total_emissions,
+    fill = local_authority,
+    label = glue("{round(total_emissions, 0)}\n{local_authority}")
+  )) +
+  geom_treemap() +
+  geom_treemap_text(
+    colour = "white",
+    place = "topleft",
+    min.size = 4,
+    grow = FALSE,
+    reflow = TRUE
+  ) +
+  scale_fill_manual(values = weca_palette_4) +
+  labs(
+    title = glue("Total territorial emissions by local authority, {max_year} (KtCO2e)"),
+    caption = "Source: UK local authority and regional greenhouse gas emissions statistics",
+    fill = "Local authority"
+  ) +
+  theme_minimal() + 
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, margin = margin(b = 10))
+  )
+
+emissions_treemap_plot
+```
 ## Emissions Over Time by Local Authority
 
 ```{r emissions-by-local-authority-year}
@@ -612,66 +724,6 @@ sector_emission_proportion_gt <- sector_emissions_weca_max_year_tbl |>
 
 ```
 
-```{r renewable-data-wrangle}
-renewable <- tbl(con_env, "renewable_la_long_tbl")
-
-max_renewable_year <- renewable |>
-  summarise(max_year = max(calendar_year, na.rm = TRUE)) |>
-  pull(max_year)
-
-renewable_generation_latest_year_tbl <- 
-  renewable |> 
-  filter(local_authority_code %in% weca_ns_la_codes,
-  calendar_year == max_renewable_year,
-  type == "Generation",
-  energy_source != "total",
-  value > 0) |>
-  collect() |> 
-  mutate(Source = str_replace_all(energy_source, "_", " ") |>
-    str_to_sentence(),
-gen_GWH = value / 1000) 
-```
-Photovoltaics dominate renewable energy generation in the West of England, followed by onshore wind. The chart below shows renewable energy generation by source and local authority for the most recent year available, which is `r max_renewable_year`. Total renewable generation in the West of England in that year was approximately `r scales::comma(round(sum(renewable_generation_latest_year_tbl$gen_GWH), 0))` GWh.
-
-
-```{r renewable-generation-plot}
-renewable_plot_gg <- 
-renewable_generation_latest_year_tbl |>
-  ggplot(aes(
-x = Source,
-y = gen_GWH,
-fill = local_authority_name
-)) +
-  geom_col(position = "stack") +
-    scale_fill_manual(values = weca_palette_4) +
-      labs(
-    title = ("Renewable Energy Generation"),
-    subtitle = glue("WECA Local Authorities in {max_renewable_year}"),
-    caption = "Source: DESNZ Regional Renewable Statistics",
-    x = "Renewable Energy Source",
-    y = "GWh",
-    fill = "Local Authority"
-  ) +
-    theme_minimal() +
-      theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0),
-    plot.caption = element_text(size = 10),
-    legend.position = "right",
-    legend.key.size = unit(0.5, "cm"),
-    legend.text = element_text(size = 10),
-    legend.title = element_text(size = 12),
-    strip.text = element_text(size = 14),
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12),
-    axis.text = element_text(size = 10, face = "bold")
-  ) +
-    coord_flip()
-
-renewable_plot_gg  
-
-```
-
-
 ```{r save-all-plots-and-tables}
 #| include: false
 
@@ -711,8 +763,6 @@ save_table <- function(gt_table, name) {
 
 walk2(all_gt_objects, names(all_gt_objects), ~ save_table(.x, .y))
 ```
-
-
 ```{r}
 #| include: false
 # Disconnect from databases
