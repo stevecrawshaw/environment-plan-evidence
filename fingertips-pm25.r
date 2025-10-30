@@ -3,37 +3,43 @@
 # So we need population over 30 to weight the mortality estimates
 
 # Enable repository from ropensci
-options(
-  repos = c(
-    ropensci = 'https://ropensci.r-universe.dev',
-    CRAN = 'https://cloud.r-project.org'
+
+if (all(grepl("fingertipsR", installed.packages()[, "Package"])) == FALSE) {
+  options(
+    repos = c(
+      ropensci = 'https://ropensci.r-universe.dev',
+      CRAN = 'https://cloud.r-project.org'
+    )
   )
-)
+}
 
 # Download and install fingertipsR in R
 #install.packages('fingertipsR')
 pacman::p_load(tidyverse, glue, janitor, fingertipsR, jsonlite)
 
 # get the available profiles and filter for the one that includes air pollution
-profs <- profiles()
-profs <- profs[grepl("Health Protection", profs$ProfileName), ]
-head(profs)
-profid <- profs$ProfileID[1]
-# get the indicators for that profile
-inds <- indicators(ProfileID = profid)
 
-# get the indicator id for air pollution mortality
-indicator_id_pollution <- inds |>
-  filter(str_detect(IndicatorName, "pollution")) |>
-  pull(IndicatorID) |>
-  head(1)
+indicators_tbl <- indicators()
+
+pm_25_mortality_inds <-
+  indicators_tbl[
+    grepl(
+      "mortality.*pollution|pollution.*mortality",
+      indicators_tbl$IndicatorName
+    ) &
+      !grepl(
+        "old",
+        indicators_tbl$IndicatorName
+      ),
+  ]
+
+if (var(pm_25_mortality_inds$IndicatorID) == 0) {
+  indicator_id_pollution <- pm_25_mortality_inds$IndicatorID[1]
+}
 
 # we want the area ID for counties and unitary authorities (502)
-area_id <- area_types() |>
-  filter(AreaTypeName == "Counties & UAs (from Apr 2023)") |>
-  pull(AreaTypeID) |>
-  head(1)
-
+area_id <- 502
+#"Counties & UAs (from Apr 2023)"
 # get the data for the indicator and area type for all years and areas
 pm25_data <- fingertips_data(
   IndicatorID = indicator_id_pollution,
